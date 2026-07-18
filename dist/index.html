@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Shifting Shadows</title>
+    <script type="module" crossorigin src="./assets/index-ByLm2GeP.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-BSKCYBpF.css">
+  </head>
+  <body>
+    <div id="game-wrapper">
+      <canvas id="gameCanvas" width="1200" height="800"></canvas>
+
+      <!-- UI Layer -->
+      <div id="ui-layer">
+        <!-- Nightmare HUD -->
+        <div id="nightmare-hud" class="hidden">
+          <div id="nightmare-timer">5:00</div>
+          <div id="nightmare-morph">MAP MORPHS IN 30s</div>
+        </div>
+
+        <div id="meters">
+          <div class="meter-container">
+            <span class="meter-label">SANITY</span>
+            <div class="meter-bar">
+              <div id="sanity-bar" class="meter-fill sanity"></div>
+            </div>
+          </div>
+          <div class="meter-container">
+            <span class="meter-label">CORRUPTION</span>
+            <div class="meter-bar">
+              <div id="corruption-bar" class="meter-fill corruption"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="souls-counter">
+          <span>👻</span>
+          <span id="souls-text">0 / 0</span>
+        </div>
+
+        <div id="candles-counter">
+          <span>🕯️</span>
+          <span id="candles-text">3</span>
+        </div>
+
+        <div id="level-info">
+          <span id="level-text">LEVEL 1</span>
+        </div>
+
+        <div id="ability-hints">
+          <span>[E] Place Candle</span>
+          <span>[SHIFT] Run</span>
+          <span>[F] Throw Rock</span>
+        </div>
+      </div>
+
+      <!-- Story Screen -->
+      <div id="story-overlay" class="hidden">
+        <div id="story-content">
+          <div id="story-text"></div>
+          <div id="story-prompt">[ PRESS SPACE ]</div>
+        </div>
+      </div>
+
+      <!-- Transition Screen -->
+      <div id="transition-overlay" class="hidden">
+        <div id="transition-content">
+          <div id="transition-level"></div>
+          <div class="t-divider"></div>
+          <div id="transition-title">PHANTOM CAN</div>
+          <div id="transition-ability"></div>
+          <div id="transition-description"></div>
+          <div class="t-divider"></div>
+          <div id="transition-prompt">[ PRESS SPACE ]</div>
+        </div>
+      </div>
+
+      <!-- Menu Screen -->
+      <div id="menu-overlay">
+        <div id="menu-content">
+          <div id="menu-title">
+            <span class="title-top">SHIFTING</span>
+            <span class="title-main">SHADOWS</span>
+            <span class="title-bottom">
+              A survival horror game where the rules change.
+            </span>
+          </div>
+
+          <div class="m-divider"></div>
+
+          <div id="menu-controls">
+            <div class="control-row">
+              <span class="key">WASD</span>
+              <span class="control-desc">Move</span>
+            </div>
+            <div class="control-row">
+              <span class="key">SHIFT</span>
+              <span class="control-desc">Run (makes noise)</span>
+            </div>
+            <div class="control-row">
+              <span class="key">E</span>
+              <span class="control-desc">Place Candle</span>
+            </div>
+            <div class="control-row">
+              <span class="key">F</span>
+              <span class="control-desc">Throw Rock</span>
+            </div>
+          </div>
+
+          <div class="m-divider"></div>
+
+          <div id="menu-buttons">
+            <button id="story-button">STORY MODE</button>
+            <button id="endless-button">ENDLESS MODE</button>
+          </div>
+
+          <div id="menu-tagline">
+            It starts as nothing. It learns everything.
+          </div>
+        </div>
+      </div>
+
+      <!-- Chapter Select Screen -->
+      <div id="chapter-overlay" class="hidden">
+        <div id="chapter-content">
+          <div id="chapter-header">SELECT CHAPTER</div>
+          <div class="m-divider"></div>
+
+          <div id="chapter-list">
+            <div class="chapter-card" data-chapter="0">
+              <div class="chapter-number">I</div>
+              <div class="chapter-info">
+                <div class="chapter-name">THE AWAKENING</div>
+                <div class="chapter-desc">
+                  Something is here. It barely moves.
+                </div>
+                <div class="chapter-levels">Levels 1 — 2</div>
+              </div>
+            </div>
+
+            <div class="chapter-card" data-chapter="1">
+              <div class="chapter-number">II</div>
+              <div class="chapter-info">
+                <div class="chapter-name">IT LEARNS</div>
+                <div class="chapter-desc">
+                  Turn off your candles. Stop leaving a trail.
+                </div>
+                <div class="chapter-levels">Levels 3 — 4</div>
+              </div>
+            </div>
+
+            <div class="chapter-card" data-chapter="2">
+              <div class="chapter-number">III</div>
+              <div class="chapter-info">
+                <div class="chapter-name">NO ESCAPE</div>
+                <div class="chapter-desc">
+                  Walls mean nothing. There are two of them.
+                </div>
+                <div class="chapter-levels">Levels 5 — 6</div>
+              </div>
+            </div>
+
+            <div
+              class="chapter-card chapter-nightmare"
+              data-chapter="nightmare"
+            >
+              <div class="chapter-number">?</div>
+              <div class="chapter-info">
+                <div class="chapter-name">THE NIGHTMARE</div>
+                <div class="chapter-desc">
+                  Everything changes. Nothing lasts. 5 minutes.
+                </div>
+                <div class="chapter-levels">Secret</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="m-divider"></div>
+          <button id="chapter-back-button">BACK</button>
+        </div>
+      </div>
+
+      <!-- Game Over Screen -->
+      <div id="gameover-overlay" class="hidden">
+        <div id="gameover-content">
+          <div id="gameover-title">YOU FADED</div>
+          <div id="gameover-reason"></div>
+          <div id="gameover-level"></div>
+          <div id="gameover-buttons">
+            <button id="retry-button">TRY AGAIN</button>
+            <button id="menu-button">MAIN MENU</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Win Screen -->
+      <div id="win-overlay" class="hidden">
+        <div id="win-content">
+          <div id="win-title">YOU ESCAPED</div>
+          <div id="win-subtitle">The shadow still learns.</div>
+          <div id="win-stats"></div>
+          <button id="play-again-button">PLAY AGAIN</button>
+        </div>
+      </div>
+
+      <!-- Endless Score Screen -->
+      <div id="endless-over-overlay" class="hidden">
+        <div id="endless-over-content">
+          <div id="endless-over-title">CONSUMED</div>
+          <div id="endless-floor"></div>
+          <div id="endless-score"></div>
+          <div id="endless-over-buttons">
+            <button id="endless-retry-button">TRY AGAIN</button>
+            <button id="endless-menu-button">MAIN MENU</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mobile Controls -->
+      <div id="mobile-controls" class="hidden">
+        <div id="joystick-zone">
+          <div id="joystick-base">
+            <div id="joystick-thumb"></div>
+          </div>
+        </div>
+        <div id="mobile-buttons">
+          <button id="mobile-run" class="mobile-btn">RUN</button>
+          <button id="mobile-candle" class="mobile-btn">🕯️</button>
+          <button id="mobile-rock" class="mobile-btn">🪨</button>
+        </div>
+      </div>
+    </div>
+
+  </body>
+</html>

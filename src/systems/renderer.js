@@ -199,29 +199,52 @@ function drawRocks(ctx) {
 }
 
 function drawPlayer(ctx) {
-  if (sprites.sprites.player) {
-    ctx.drawImage(
-      sprites.sprites.player,
-      player.x,
-      player.y,
-      player.width,
-      player.height,
-    );
-  } else {
+  if (!sprites.sprites.player) {
     ctx.fillStyle = "#c8d8ff";
     ctx.fillRect(player.x, player.y, player.width, player.height);
+    return;
   }
 
-  // Draw carried soul above player
+  ctx.save();
+
+  const centerX = player.x + player.width / 2;
+  const centerY = player.y + player.height / 2;
+
+  let bobY = 0;
+  let tilt = 0;
+
+  if (player.moving) {
+    const bobSpeed = player.isRunning ? 15 : 10;
+    bobY = Math.abs(Math.sin(Date.now() / (1000 / bobSpeed))) * -2;
+
+    if (player.direction.x !== 0) {
+      tilt = player.direction.x * 0.08 * Math.sin(Date.now() / 100);
+    }
+  }
+
+  ctx.translate(centerX, centerY + bobY);
+  ctx.rotate(tilt);
+  ctx.translate(-centerX, -centerY - bobY);
+
+  ctx.drawImage(
+    sprites.sprites.player,
+    player.x,
+    player.y + bobY,
+    player.width,
+    player.height,
+  );
+
+  ctx.restore();
+
   if (player.carryingSoul && sprites.sprites.soul) {
-    const bob = Math.sin(Date.now() / 200) * 3;
+    const soulBob = Math.sin(Date.now() / 200) * 3;
     ctx.save();
     ctx.shadowColor = "#c8d8ff";
     ctx.shadowBlur = 15;
     ctx.drawImage(
       sprites.sprites.soul,
       player.x + 5,
-      player.y - 20 + bob,
+      player.y - 20 + soulBob,
       20,
       20,
     );
@@ -232,13 +255,7 @@ function drawPlayer(ctx) {
     ctx.strokeStyle = "rgba(255, 100, 100, 0.3)";
     ctx.setLineDash([4, 4]);
     ctx.beginPath();
-    ctx.arc(
-      player.x + player.width / 2,
-      player.y + player.height / 2,
-      30,
-      0,
-      Math.PI * 2,
-    );
+    ctx.arc(centerX, centerY, 30, 0, Math.PI * 2);
     ctx.stroke();
     ctx.setLineDash([]);
   }
@@ -249,6 +266,7 @@ function drawPhantom(ctx) {
   const pcenterY = phantom.y + phantom.height / 2;
   const phantomSprite = sprites.sprites.phantom;
   const phantomAlpha = 0.7 + Math.sin(phantom.pulseTimer * 2) * 0.2;
+  const hoverY = Math.sin(phantom.pulseTimer * 2) * 3;
 
   if (phantomSprite) {
     ctx.save();
@@ -258,7 +276,7 @@ function drawPhantom(ctx) {
     ctx.drawImage(
       phantomSprite,
       phantom.x - 4,
-      phantom.y - 4,
+      phantom.y - 4 + hoverY,
       TILE_SIZE,
       TILE_SIZE,
     );
@@ -272,10 +290,10 @@ function drawPhantom(ctx) {
   ctx.shadowColor = "#ff0000";
   ctx.shadowBlur = 8;
   ctx.beginPath();
-  ctx.arc(pcenterX - 5, pcenterY - 4, eyeSize, 0, Math.PI * 2);
+  ctx.arc(pcenterX - 5, pcenterY - 4 + hoverY, eyeSize, 0, Math.PI * 2);
   ctx.fill();
   ctx.beginPath();
-  ctx.arc(pcenterX + 5, pcenterY - 4, eyeSize, 0, Math.PI * 2);
+  ctx.arc(pcenterX + 5, pcenterY - 4 + hoverY, eyeSize, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
@@ -286,6 +304,7 @@ function drawSecondPhantom(ctx) {
 
   const spCX = sp.x + sp.width / 2;
   const spCY = sp.y + sp.height / 2;
+  const hoverY = Math.sin(sp.pulseTimer * 2.2) * 3;
 
   if (sprites.sprites.phantom2) {
     const spAlpha = 0.6 + Math.sin(sp.pulseTimer * 2.5) * 0.15;
@@ -296,7 +315,7 @@ function drawSecondPhantom(ctx) {
     ctx.drawImage(
       sprites.sprites.phantom2,
       sp.x - 4,
-      sp.y - 4,
+      sp.y - 4 + hoverY,
       TILE_SIZE,
       TILE_SIZE,
     );
@@ -309,10 +328,10 @@ function drawSecondPhantom(ctx) {
   ctx.shadowColor = "#cc00ff";
   ctx.shadowBlur = 6;
   ctx.beginPath();
-  ctx.arc(spCX - 5, spCY - 4, 2, 0, Math.PI * 2);
+  ctx.arc(spCX - 5, spCY - 4 + hoverY, 2, 0, Math.PI * 2);
   ctx.fill();
   ctx.beginPath();
-  ctx.arc(spCX + 5, spCY - 4, 2, 0, Math.PI * 2);
+  ctx.arc(spCX + 5, spCY - 4 + hoverY, 2, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }

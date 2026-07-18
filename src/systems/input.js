@@ -14,7 +14,6 @@ export function initInput() {
   window.addEventListener("keydown", (e) => {
     keys[e.key.toLowerCase()] = true;
 
-    // Handle space
     if ((e.code === "Space" || e.key === " ") && onSpacePressed) {
       e.preventDefault();
       onSpacePressed();
@@ -23,8 +22,6 @@ export function initInput() {
 
   window.addEventListener("keyup", (e) => {
     keys[e.key.toLowerCase()] = false;
-    if (e.key.toLowerCase() === "e") keys["e"] = false;
-    if (e.key.toLowerCase() === "f") keys["f"] = false;
   });
 }
 

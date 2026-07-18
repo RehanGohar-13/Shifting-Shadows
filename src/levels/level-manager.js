@@ -81,6 +81,8 @@ export function loadLevel(level) {
             height: TILE_SIZE,
             active: false,
             triggered: false,
+            readyToEscape: false,
+            justBecameReady: false,
           };
           break;
       }
@@ -181,7 +183,7 @@ function spawnSouls(count) {
     "center",
   ];
   const placed = [];
-  const minDistCells = 6;
+  const minDistCells = 5;
   let zoneIdx = 0;
   let attempts = 0;
 
@@ -413,7 +415,6 @@ export function moveRiftRandomly() {
   levelState.exitRift.x = pick.c * TILE_SIZE;
   levelState.exitRift.y = pick.r * TILE_SIZE;
   levelState.exitRift.active = true;
-  levelState.exitRift.triggered = false;
 }
 
 function buildGridFromWalls() {

@@ -3,95 +3,124 @@
 // ============================================
 
 export const STORY = {
-  intro: `You were a knight.<br><br>
-    The kingdom's finest blade.<br>
-    They called you <span class="story-highlight">The Silver Shadow</span>.<br><br>
-    You killed without mercy.<br>
-    Soldiers. Rebels. Innocents.<br>
-    You stopped counting after the first hundred.<br><br>
-    Then one night, something followed you home.<br><br>
-    Not a person.<br>
-    <span class="story-danger">A phantom.</span><br><br>
-    Born from every soul you took.<br>
-    It doesn't want revenge.<br>
-    It wants to <span class="story-highlight">become you</span>.`,
+  intro: `You murdered them all.<br><br>
+    Men. Women. Children.<br>
+    Anyone the king pointed at.<br><br>
+    They called you <span class="story-danger">The Silver Shadow</span> —<br>
+    the blade that never hesitated.<br><br>
+    You bathed in their blood.<br>
+    You slept through their screams.<br>
+    You buried your soul in a shallow grave<br>
+    somewhere between the 40th body and the 400th.<br><br>
+    Tonight, you woke up in a place<br>
+    that shouldn't exist.<br><br>
+    <span class="story-danger">Something is here with you.</span><br><br>
+    It has your face.<br>
+    It has your victims' eyes.<br>
+    And it is <span class="story-highlight">learning</span> what you did.`,
 
   chapters: [
     {
       before: [
-        `The dungeon beneath the castle.<br>
-        This is where they kept the prisoners.<br>
-        <span class="story-highlight">Your</span> prisoners.<br><br>
-        Something drifts through these halls now.<br>
-        A shadow made of screams.<br><br>
-        It can barely move. It's still learning<br>
-        what it is.<br><br>
-        <span class="story-danger">Collect the souls. Seal the rift. Escape.</span>`,
+        `The dungeon beneath the palace.<br>
+        The one where you executed the rebels.<br>
+        The one where the mothers begged.<br>
+        The one where the children stopped crying<br>
+        <span class="story-danger">after enough hours.</span><br><br>
+        Their souls are trapped here.<br>
+        Trapped in bottles you never noticed<br>
+        when you left the bodies to rot.<br><br>
+        <span class="story-highlight">Free them. Feed them to the rift.</span><br>
+        <span class="story-danger">Before it feeds on you.</span>`,
 
         `You ran.<br><br>
-        Your armor clanked against the stone floor<br>
-        and <span class="story-danger">it heard you</span>.<br><br>
-        Every soul you took gave it a new sense.<br>
-        First movement. Now hearing.<br><br>
-        <span class="story-highlight">Walk slowly, knight.<br>
-        Your victims are listening.</span>`,
+        Your boots slapped the cold stone<br>
+        and the phantom's head snapped up.<br><br>
+        <span class="story-danger">It heard you.</span><br><br>
+        Every soul you took<br>
+        gave it a new way to find you.<br>
+        First it learned to move.<br>
+        Now it learned to listen.<br><br>
+        <span class="story-highlight">Walk softly, butcher.<br>
+        The dead are listening for their killer.</span>`,
       ],
     },
     {
       before: [
-        `You lit a torch to find your way.<br><br>
-        The light fell on the phantom's face<br>
-        and you saw it clearly for the first time.<br><br>
-        <span class="story-danger">It had your face.</span><br><br>
-        An older version. Hollow eyes.<br>
-        A mouth full of teeth that used to be words.<br><br>
-        It sees you now. In the light.<br>
-        <span class="story-highlight">The darkness is safer.</span>`,
+        `You lit a torch.<br>
+        The flame caught on the phantom's face<br>
+        and you finally saw it.<br><br>
+        <span class="story-danger">It was you.</span><br><br>
+        Older. Hollow. Rotten.<br>
+        A mouth stitched shut with the screams<br>
+        of everyone you silenced.<br>
+        Eyes weeping black tar<br>
+        for every promise you broke.<br><br>
+        It sees you now.<br>
+        In the light, it <span class="story-danger">remembers you.</span><br><br>
+        <span class="story-highlight">The darkness lied.<br>
+        There is no hiding from yourself.</span>`,
 
-        `You thought you escaped.<br>
-        You hid behind a wall and held your breath.<br><br>
+        `You hid behind a wall.<br>
+        You covered your mouth to muffle the breath<br>
+        that innocents once held while you approached.<br><br>
         But it found your footprints.<br>
-        <span class="story-danger">The trail of blood you've always left behind.</span><br><br>
-        Every step you take leaves a mark.<br>
-        Every mark is a memory of someone who died.<br><br>
-        <span class="story-highlight">You can't outrun your past.</span>`,
+        <span class="story-danger">The trail of blood<br>
+        you have always left behind.</span><br><br>
+        Every step of your life is a wound<br>
+        in the earth.<br>
+        And it can smell every one of them.<br><br>
+        <span class="story-highlight">You cannot outrun what you did.<br>
+        Only forward. Only into the rift.</span>`,
       ],
     },
     {
       before: [
-        `The walls shook.<br><br>
-        You pressed your back against cold stone<br>
-        and felt something reach through it.<br><br>
-        <span class="story-danger">Its hand came through the wall.</span><br>
-        Made of smoke and sorrow.<br><br>
-        The barriers between you and your sins<br>
+        `The walls trembled.<br>
+        You pressed your back against stone<br>
+        and felt <span class="story-danger">something reach through it.</span><br><br>
+        A hand of smoke and small bones.<br>
+        Fingers made of every child<br>
+        you told yourself was "collateral."<br><br>
+        The walls between you and your sins<br>
         are dissolving.<br><br>
-        <span class="story-highlight">There is nowhere left to hide.</span>`,
+        <span class="story-highlight">There is no more running.<br>
+        There is only the rift.<br>
+        And the rift is watching too.</span>`,
 
         `It split in two.<br><br>
-        Two phantoms now. Two shadows.<br>
-        Made from the lives you ended.<br><br>
-        One for the soldiers you killed in battle.<br>
-        <span class="story-danger">One for the innocents.</span><br><br>
+        Where there was one shadow,<br>
+        <span class="story-danger">now there are two.</span><br><br>
+        One for the soldiers you butchered<br>
+        on the king's command.<br>
+        One for the ones you butchered<br>
+        <span class="story-danger">for fun.</span><br><br>
         They move differently.<br>
-        But they share one purpose.<br><br>
-        <span class="story-highlight">To make you feel what they felt.</span>`,
+        They kill differently.<br>
+        But they share one hunger.<br><br>
+        <span class="story-highlight">To do to you<br>
+        what you did to them.</span>`,
       ],
     },
   ],
 
   ending: `The rift seals behind you.<br><br>
-    You collapse on the other side.<br>
-    Breathing. Alive. Free.<br><br>
-    But you know the truth now.<br><br>
-    The phantom wasn't a monster.<br>
-    <span class="story-danger">It was a mirror.</span><br><br>
-    Every soul you took lives inside it.<br>
-    Every face you forgot — it remembers.<br><br>
+    You collapse into the dirt<br>
+    of a world you thought you knew.<br><br>
+    You are alive.<br>
+    You are free.<br><br>
+    But you know now.<br><br>
+    <span class="story-danger">The phantom wasn't punishment.</span><br>
+    <span class="story-danger">It was you.</span><br><br>
+    Every face you forgot — it remembered.<br>
+    Every scream you buried — it swallowed.<br>
+    Every child you left in the dark —<br>
+    it grew into.<br><br>
     You escaped the dungeon.<br>
-    But the dungeon is inside you.<br><br>
-    And in the darkness behind your eyes,<br>
-    <span class="story-highlight">it's still learning.</span><br><br>
+    But the dungeon has always been<br>
+    <span class="story-highlight">inside your skull.</span><br><br>
+    Close your eyes.<br>
+    <span class="story-danger">It is already learning again.</span><br><br>
     <span class="story-danger">SHIFTING SHADOWS</span>`,
 };
 
@@ -118,7 +147,6 @@ export function showStory(text, callback) {
   document.getElementById("ui-layer").style.display = "none";
   storyCallback = callback;
 
-  // Also allow click to advance
   overlay.onclick = () => {
     advanceStory();
   };

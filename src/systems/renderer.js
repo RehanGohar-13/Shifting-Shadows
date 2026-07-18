@@ -251,7 +251,6 @@ function drawPlayer(ctx) {
 
   ctx.restore();
 
-  // Draw carried item above player
   if (player.carrying) {
     const itemBob = Math.sin(Date.now() / 200) * 3;
     let itemSprite = null;
@@ -288,8 +287,6 @@ function drawPlayer(ctx) {
 }
 
 function drawPhantom(ctx) {
-  const pcenterX = phantom.x + phantom.width / 2;
-  const pcenterY = phantom.y + phantom.height / 2;
   const phantomSprite = sprites.sprites.phantom;
   const phantomAlpha = 0.7 + Math.sin(phantom.pulseTimer * 2) * 0.2;
   const hoverY = Math.sin(phantom.pulseTimer * 2) * 3;
@@ -308,32 +305,12 @@ function drawPhantom(ctx) {
     );
     ctx.restore();
   }
-
-  const eyeGlow = 0.7 + Math.sin(phantom.pulseTimer * 4) * 0.3;
-  const eyeSize = phantom.state === "CHASE" ? 2.5 : 2;
-
-  // Eyes positioned relative to sprite top
-  const eyeY = phantom.y + 12 + hoverY;
-
-  ctx.save();
-  ctx.fillStyle = `rgba(255, 0, 0, ${eyeGlow})`;
-  ctx.shadowColor = "#ff0000";
-  ctx.shadowBlur = 8;
-  ctx.beginPath();
-  ctx.arc(pcenterX - 8, eyeY, eyeSize, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(pcenterX + 8, eyeY, eyeSize, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
 }
 
 function drawSecondPhantom(ctx) {
   const sp = getSecondPhantom();
   if (!sp) return;
 
-  const spCX = sp.x + sp.width / 2;
-  const spCY = sp.y + sp.height / 2;
   const hoverY = Math.sin(sp.pulseTimer * 2.2) * 3;
 
   if (sprites.sprites.phantom2) {
@@ -351,21 +328,6 @@ function drawSecondPhantom(ctx) {
     );
     ctx.restore();
   }
-
-  const spEyeGlow = 0.6 + Math.sin(sp.pulseTimer * 4) * 0.3;
-  const spEyeY = sp.y + 12 + hoverY;
-
-  ctx.save();
-  ctx.fillStyle = `rgba(200, 0, 255, ${spEyeGlow})`;
-  ctx.shadowColor = "#cc00ff";
-  ctx.shadowBlur = 6;
-  ctx.beginPath();
-  ctx.arc(spCX - 8, spEyeY, 2, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(spCX + 8, spEyeY, 2, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
 }
 
 function drawSoulFlash(ctx, canvas) {

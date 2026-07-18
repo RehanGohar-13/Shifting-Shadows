@@ -25,13 +25,12 @@ import {
   isWaitingForStory,
   resetStory,
 } from "./systems/story.js";
-import { createEndlessLevel } from "./systems/endless-mode.js";
+import { createEndlessLevel, getHellPhase } from "./systems/endless-mode.js";
 import {
   loadProgress,
   completeChapter,
   updateEndlessRecord,
 } from "./systems/progress.js";
-import { getRandomMap, countSoulsInMap } from "./levels/story-map-pool.js";
 import {
   startNightmare,
   updateNightmare,
@@ -66,7 +65,6 @@ const state = {
   endlessScore: 0,
   gameTime: 0,
   lastTime: 0,
-  nightmareUnlocked: false,
 };
 
 // ── Input Setup ──
@@ -83,11 +81,139 @@ setSpaceCallback(() => {
   }
 });
 
+// ── Tutorial Hints ──
+const tutorialHints = {
+  shown: {
+    movement: false,
+    run: false,
+    candle: false,
+    rock: false,
+    soulPickup: false,
+    delivery: false,
+  },
+};
+
+function showHint(text, duration = 2.5) {
+  const existing = document.querySelectorAll(".tutorial-hint");
+  existing.forEach((el) => el.remove());
+
+  const hint = document.createElement("div");
+  hint.className = "tutorial-hint";
+  hint.style.cssText = `
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: rgba(200, 216, 255, 0.9);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 14px;
+    letter-spacing: 3px;
+    text-align: center;
+    z-index: 15;
+    pointer-events: none;
+    background: rgba(5, 5, 8, 0.85);
+    padding: 16px 32px;
+    border: 1px solid rgba(107, 0, 255, 0.4);
+    text-shadow: 0 0 8px rgba(200, 216, 255, 0.5);
+    animation: hintFade ${duration}s forwards;
+  `;
+  hint.innerHTML = text;
+  document.getElementById("game-wrapper").appendChild(hint);
+  setTimeout(() => hint.remove(), duration * 1000);
+}
+
+function resetTutorial() {
+  tutorialHints.shown.movement = false;
+  tutorialHints.shown.run = false;
+  tutorialHints.shown.candle = false;
+  tutorialHints.shown.rock = false;
+  tutorialHints.shown.soulPickup = false;
+  tutorialHints.shown.delivery = false;
+}
+
+function updateTutorial() {
+  if (state.currentMode !== "story") return;
+
+  if (state.currentLevel === 0) {
+    if (
+      !tutorialHints.shown.movement &&
+      state.gameTime > 1 &&
+      state.gameTime < 2
+    ) {
+      tutorialHints.shown.movement = true;
+      showHint("WASD to move", 2.5);
+    }
+
+    if (!tutorialHints.shown.run && state.gameTime > 8 && state.gameTime < 9) {
+      tutorialHints.shown.run = true;
+      showHint(
+        'SHIFT to run<br><span style="color:#ff5566;font-size:11px">but running makes noise</span>',
+        2.5,
+      );
+    }
+
+    if (!tutorialHints.shown.soulPickup && !player.carrying) {
+      for (const soul of levelState.souls) {
+        if (!soul.collected) {
+          const dx = soul.x - player.x;
+          const dy = soul.y - player.y;
+          if (Math.sqrt(dx * dx + dy * dy) < 100) {
+            tutorialHints.shown.soulPickup = true;
+            showHint(
+              'Pick up the soul<br><span style="color:#aaccff;font-size:11px">carry it to the rift</span>',
+              2.5,
+            );
+            break;
+          }
+        }
+      }
+    }
+
+    if (!tutorialHints.shown.delivery && player.carrying === "soul") {
+      tutorialHints.shown.delivery = true;
+      showHint(
+        'Find the RIFT<br><span style="color:#00ffaa;font-size:11px">deliver the soul</span>',
+        2.5,
+      );
+    }
+  }
+
+  if (
+    state.currentLevel === 1 &&
+    !tutorialHints.shown.candle &&
+    state.gameTime > 2 &&
+    state.gameTime < 3
+  ) {
+    tutorialHints.shown.candle = true;
+    showHint(
+      'Pick up torches for light<br><span style="color:#ff8800;font-size:11px">E to drop or place</span>',
+      2.5,
+    );
+  }
+
+  if (
+    state.currentLevel === 2 &&
+    !tutorialHints.shown.rock &&
+    state.gameTime > 2 &&
+    state.gameTime < 3
+  ) {
+    tutorialHints.shown.rock = true;
+    showHint(
+      'Pick up rocks<br><span style="color:#ffaa00;font-size:11px">F to throw, E to drop</span>',
+      2.5,
+    );
+  }
+}
+
 // ── Scene Management ──
 function showTransition(levelIdx) {
   sound.playMutationReveal();
   state.current = GameState.TRANSITION;
-  const level = LEVELS[levelIdx];
+
+  const level =
+    state.currentMode === "endless"
+      ? createEndlessLevel(state.endlessFloor)
+      : LEVELS[levelIdx];
 
   const overlay = document.getElementById("transition-overlay");
   overlay.classList.remove("hidden");
@@ -97,10 +223,11 @@ function showTransition(levelIdx) {
       ? "Floor " + state.endlessFloor
       : "Level " + (levelIdx + 1);
 
-  document.getElementById("transition-ability").textContent = level.ability;
+  document.getElementById("transition-ability").textContent =
+    level.ability || level.name;
   document
     .getElementById("transition-ability")
-    .setAttribute("data-text", level.ability);
+    .setAttribute("data-text", level.ability || level.name);
   document.getElementById("transition-description").textContent =
     level.description;
 
@@ -115,20 +242,9 @@ function startLevel() {
   document.getElementById("transition-overlay").classList.add("hidden");
   document.getElementById("ui-layer").style.display = "block";
 
-  if (state.currentMode === "story") {
-    const baseLevel = LEVELS[state.currentLevel];
-    const randomMap = getRandomMap(state.currentLevel);
-
-    if (randomMap) {
-      const levelWithRandomMap = {
-        ...baseLevel,
-        map: randomMap,
-        soulsNeeded: baseLevel.soulsNeeded,
-      };
-      loadLevel(levelWithRandomMap);
-    } else {
-      loadLevel(baseLevel);
-    }
+  if (state.currentMode === "endless") {
+    const endlessLevel = createEndlessLevel(state.endlessFloor);
+    loadLevel(endlessLevel);
   } else {
     loadLevel(LEVELS[state.currentLevel]);
   }
@@ -150,6 +266,7 @@ function nextLevel() {
   if (state.currentMode === "endless") {
     state.endlessScore += state.endlessFloor * 100;
     state.endlessFloor++;
+    updateEndlessRecord(state.endlessFloor);
     startEndlessFloor();
     return;
   }
@@ -226,10 +343,13 @@ function endlessGameOver() {
   state.current = GameState.GAMEOVER;
   document.getElementById("ui-layer").style.display = "none";
   document.getElementById("endless-over-overlay").classList.remove("hidden");
+
+  const phase = getHellPhase(state.endlessFloor);
   document.getElementById("endless-floor").textContent =
-    "Floor Reached: " + state.endlessFloor;
+    "Descended to Floor " + state.endlessFloor;
   document.getElementById("endless-score").textContent =
     "Score: " + state.endlessScore;
+  document.getElementById("endless-phase-name").textContent = phase.name;
 }
 
 function returnToMenu() {
@@ -263,77 +383,22 @@ function returnToMenu() {
 
 // ── Endless Mode ──
 function startEndlessFloor() {
-  const endlessLevel = createEndlessLevel(state.endlessFloor);
+  const phase = getHellPhase(state.endlessFloor);
+  const isPhaseChange =
+    state.endlessFloor > 1 &&
+    HELL_PHASE_START_FLOORS.includes(state.endlessFloor);
 
-  // Replace current level slot with generated level
-  LEVELS[state.currentLevel] = endlessLevel;
-
-  if (state.endlessFloor === 1 || state.endlessFloor % 5 === 0) {
-    showTransition(state.currentLevel);
+  // Show story text on floor 1 or when entering a new phase
+  if (state.endlessFloor === 1 || isPhaseChange) {
+    showTransition(0);
   } else {
     startLevel();
   }
 }
 
-// ── Game Loop ──
-function gameLoop(timestamp) {
-  if (state.lastTime === 0) state.lastTime = timestamp;
-  const dt = Math.min((timestamp - state.lastTime) / 1000, 0.05);
-  state.lastTime = timestamp;
+const HELL_PHASE_START_FLOORS = [1, 4, 8, 13, 19, 26];
 
-  if (state.current === GameState.PLAYING) {
-    state.gameTime += dt;
-    if (Math.random() < 0.003 && sound.playAmbientScare) {
-      sound.playAmbientScare();
-    }
-    updateTutorial();
-    updatePlayer(dt, { nextLevel, gameOver });
-    updatePhantom(dt);
-    updateSecondPhantom(dt, { gameOver });
-    camera.update(dt);
-
-    // Nightmare mode updates
-    if (state.currentMode === "nightmare") {
-      updateNightmare(dt, player.souls);
-      updateNightmareHUD();
-    }
-
-    render(ctx, canvas, state.gameTime);
-  }
-
-  requestAnimationFrame(gameLoop);
-}
-
-function refreshChapterCards() {
-  const progress = loadProgress();
-  document.querySelectorAll(".chapter-card").forEach((card) => {
-    const chapterAttr = card.getAttribute("data-chapter");
-    card.classList.remove("locked", "completed");
-
-    if (chapterAttr === "nightmare") {
-      // COMPLETELY HIDE until chapter 3 done
-      if (!progress.chapter3Complete) {
-        card.style.display = "none";
-      } else {
-        card.style.display = "flex";
-      }
-      return;
-    }
-
-    const chapter = parseInt(chapterAttr);
-    if (chapter + 1 > progress.chaptersUnlocked) {
-      card.classList.add("locked");
-    }
-
-    if (chapter === 0 && progress.chapter1Complete)
-      card.classList.add("completed");
-    if (chapter === 1 && progress.chapter2Complete)
-      card.classList.add("completed");
-    if (chapter === 2 && progress.chapter3Complete)
-      card.classList.add("completed");
-  });
-}
-
+// ── Nightmare Mode ──
 function startNightmareMode() {
   document.getElementById("chapter-overlay").classList.add("hidden");
   state.currentMode = "nightmare";
@@ -360,7 +425,6 @@ function startNightmareLevel() {
 
   const map = getRandomNightmareMap();
   if (!map) {
-    console.error("Failed to load nightmare map");
     returnToMenu();
     return;
   }
@@ -370,14 +434,13 @@ function startNightmareLevel() {
     ability: "CHAOS",
     description: '"It changes. It learns. You die."',
     mutations: {},
-    soulsNeeded: 8,
+    soulsNeeded: 12,
     phantomSpeed: 60,
     map: map,
   };
 
   loadLevel(nightmareLevel);
 
-  // Force phantom to start with no powers
   phantom.canSense = false;
   phantom.canManifest = false;
   phantom.canTrace = false;
@@ -395,20 +458,16 @@ function startNightmareLevel() {
 }
 
 function morphNightmareMap() {
-  // Flash effect
   const flash = document.createElement("div");
   flash.id = "morph-flash";
   document.getElementById("game-wrapper").appendChild(flash);
   setTimeout(() => flash.remove(), 600);
 
-  // Save player state
-  const savedSouls = player.souls;
+  const savedDelivered = player.soulsDelivered;
   const savedSanity = player.sanity;
   const savedCorruption = player.corruption;
-  const savedCandles = player.candles;
-  const savedRocks = player.rocks;
+  const savedCarrying = player.carrying;
 
-  // Save phantom powers
   const powers = {
     canSense: phantom.canSense,
     canManifest: phantom.canManifest,
@@ -418,28 +477,24 @@ function morphNightmareMap() {
     speed: phantom.speed,
   };
 
-  // Load new map
   const newMap = getRandomNightmareMap();
   const nightmareLevel = {
     name: "THE NIGHTMARE",
     ability: "CHAOS",
     description: "",
     mutations: {},
-    soulsNeeded: 8 - savedSouls, // Only need remaining
+    soulsNeeded: 12,
     phantomSpeed: powers.speed,
     map: newMap,
   };
 
   loadLevel(nightmareLevel);
 
-  // Restore player state
-  player.souls = savedSouls;
+  player.soulsDelivered = savedDelivered;
   player.sanity = savedSanity;
   player.corruption = savedCorruption;
-  player.candles = savedCandles;
-  player.rocks = savedRocks;
+  player.carrying = savedCarrying;
 
-  // Restore phantom powers
   phantom.canSense = powers.canSense;
   phantom.canManifest = powers.canManifest;
   phantom.canTrace = powers.canTrace;
@@ -473,7 +528,6 @@ function updateNightmareHUD() {
   document.getElementById("nightmare-morph").textContent =
     `MAP MORPHS IN ${morphTime}s`;
 
-  // Red pulse when timer < 30s
   const timerEl = document.getElementById("nightmare-timer");
   if (nightmareState.timeLeft < 30) {
     timerEl.style.color = "#ff0000";
@@ -481,135 +535,68 @@ function updateNightmareHUD() {
   }
 }
 
-// ── In-Game Tutorial Hints ──
-const tutorialHints = {
-  shown: {
-    movement: false,
-    run: false,
-    candle: false,
-    rock: false,
-    soulPickup: false,
-    delivery: false,
-  },
-};
+function refreshChapterCards() {
+  const progress = loadProgress();
+  document.querySelectorAll(".chapter-card").forEach((card) => {
+    const chapterAttr = card.getAttribute("data-chapter");
+    card.classList.remove("locked", "completed");
 
-function showHint(text, duration = 2.5) {
-  const hint = document.createElement("div");
-  hint.style.cssText = `
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    color: rgba(200, 216, 255, 0.9);
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 14px;
-    letter-spacing: 3px;
-    text-align: center;
-    z-index: 15;
-    pointer-events: none;
-    background: rgba(5, 5, 8, 0.85);
-    padding: 16px 32px;
-    border: 1px solid rgba(107, 0, 255, 0.4);
-    text-shadow: 0 0 8px rgba(200, 216, 255, 0.5);
-    animation: hintFade ${duration}s forwards;
-  `;
-  hint.innerHTML = text;
-  document.getElementById("game-wrapper").appendChild(hint);
-  setTimeout(() => hint.remove(), duration * 1000);
-}
-
-function resetTutorial() {
-  tutorialHints.shown.movement = false;
-  tutorialHints.shown.run = false;
-  tutorialHints.shown.candle = false;
-  tutorialHints.shown.rock = false;
-  tutorialHints.shown.soulPickup = false;
-  tutorialHints.shown.delivery = false;
-}
-
-function updateTutorial() {
-  if (state.currentMode !== "story") return;
-
-  // Level 1
-  if (state.currentLevel === 0) {
-    if (
-      !tutorialHints.shown.movement &&
-      state.gameTime > 1 &&
-      state.gameTime < 2
-    ) {
-      tutorialHints.shown.movement = true;
-      showHint("WASD to move", 2.5);
-    }
-
-    if (!tutorialHints.shown.run && state.gameTime > 8 && state.gameTime < 9) {
-      tutorialHints.shown.run = true;
-      showHint(
-        'SHIFT to run<br><span style="color:#ff5566;font-size:11px">but running makes noise</span>',
-        2.5,
-      );
-    }
-
-    if (!tutorialHints.shown.soulPickup && !player.carrying) {
-      for (const soul of levelState.souls) {
-        if (!soul.collected) {
-          const dx = soul.x - player.x;
-          const dy = soul.y - player.y;
-          if (Math.sqrt(dx * dx + dy * dy) < 100) {
-            tutorialHints.shown.soulPickup = true;
-            showHint(
-              'Pick up the soul<br><span style="color:#aaccff;font-size:11px">carry it to the rift</span>',
-              2.5,
-            );
-            break;
-          }
-        }
+    if (chapterAttr === "nightmare") {
+      if (!progress.chapter3Complete) {
+        card.style.display = "none";
+      } else {
+        card.style.display = "flex";
       }
+      return;
     }
 
-    if (!tutorialHints.shown.delivery && player.carrying === "soul") {
-      tutorialHints.shown.delivery = true;
-      showHint(
-        'Find the RIFT<br><span style="color:#00ffaa;font-size:11px">deliver the soul</span>',
-        2.5,
-      );
+    const chapter = parseInt(chapterAttr);
+    if (chapter + 1 > progress.chaptersUnlocked) {
+      card.classList.add("locked");
     }
-  }
 
-  // Level 2 — Candles
-  if (
-    state.currentLevel === 1 &&
-    !tutorialHints.shown.candle &&
-    state.gameTime > 2 &&
-    state.gameTime < 3
-  ) {
-    tutorialHints.shown.candle = true;
-    showHint(
-      'Pick up torches for light<br><span style="color:#ff8800;font-size:11px">E to drop or place</span>',
-      2.5,
-    );
-  }
-
-  // Level 3 — Rocks
-  if (
-    state.currentLevel === 2 &&
-    !tutorialHints.shown.rock &&
-    state.gameTime > 2 &&
-    state.gameTime < 3
-  ) {
-    tutorialHints.shown.rock = true;
-    showHint(
-      'Pick up rocks<br><span style="color:#ffaa00;font-size:11px">F to throw, E to drop</span>',
-      2.5,
-    );
-  }
+    if (chapter === 0 && progress.chapter1Complete)
+      card.classList.add("completed");
+    if (chapter === 1 && progress.chapter2Complete)
+      card.classList.add("completed");
+    if (chapter === 2 && progress.chapter3Complete)
+      card.classList.add("completed");
+  });
 }
 
-// ── Menu Button Events ──
+// ── Game Loop ──
+function gameLoop(timestamp) {
+  if (state.lastTime === 0) state.lastTime = timestamp;
+  const dt = Math.min((timestamp - state.lastTime) / 1000, 0.05);
+  state.lastTime = timestamp;
+
+  if (state.current === GameState.PLAYING) {
+    state.gameTime += dt;
+    if (Math.random() < 0.003 && sound.playAmbientScare) {
+      sound.playAmbientScare();
+    }
+    updateTutorial();
+    updatePlayer(dt, { nextLevel, gameOver });
+    updatePhantom(dt);
+    updateSecondPhantom(dt, { gameOver });
+    camera.update(dt);
+
+    if (state.currentMode === "nightmare") {
+      updateNightmare(dt, player.soulsDelivered);
+      updateNightmareHUD();
+    }
+
+    render(ctx, canvas, state.gameTime);
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+// ── Button Events ──
 document.getElementById("story-button").addEventListener("click", () => {
   sound.init();
   sound.startAmbient();
   sound.startPhantomDrone();
-
   document.getElementById("menu-overlay").style.display = "none";
   document.getElementById("chapter-overlay").classList.remove("hidden");
   refreshChapterCards();
@@ -619,11 +606,9 @@ document.querySelectorAll(".chapter-card").forEach((card) => {
   card.addEventListener("click", () => {
     const chapterAttr = card.getAttribute("data-chapter");
 
-    // Handle nightmare mode
     if (chapterAttr === "nightmare") {
       const progress = loadProgress();
       if (!progress.chapter3Complete) {
-        // Show locked message
         card.style.animation = "lockedShake 0.4s ease";
         setTimeout(() => {
           card.style.animation = "";
@@ -674,9 +659,7 @@ document.getElementById("endless-button").addEventListener("click", () => {
   sound.init();
   sound.startAmbient();
   sound.startPhantomDrone();
-
   document.getElementById("menu-overlay").style.display = "none";
-
   state.currentMode = "endless";
   state.currentLevel = 0;
   state.endlessFloor = 1;
@@ -684,15 +667,25 @@ document.getElementById("endless-button").addEventListener("click", () => {
   phantom.reset();
   state.gameTime = 0;
 
-  startEndlessFloor();
+  // Show hell intro
+  showStory(
+    `You did not escape.<br><br>
+    You only <span class="story-danger">descended.</span><br><br>
+    Every floor is a memory<br>
+    of every life you took.<br><br>
+    You will not reach the bottom.<br>
+    There is no bottom.<br><br>
+    <span class="story-highlight">Only lower.</span>`,
+    () => {
+      startEndlessFloor();
+    },
+  );
 });
 
 document.getElementById("retry-button").addEventListener("click", () => {
   document.getElementById("gameover-overlay").classList.add("hidden");
   document.getElementById("ui-layer").style.display = "block";
-
   phantom.reset();
-
   for (let i = 0; i <= state.currentLevel; i++) {
     if (LEVELS[i] && LEVELS[i].mutations) {
       Object.keys(LEVELS[i].mutations).forEach((key) => {
@@ -700,7 +693,6 @@ document.getElementById("retry-button").addEventListener("click", () => {
       });
     }
   }
-
   loadLevel(LEVELS[state.currentLevel]);
   state.current = GameState.PLAYING;
 });
@@ -714,14 +706,12 @@ document
   .getElementById("endless-retry-button")
   .addEventListener("click", () => {
     document.getElementById("endless-over-overlay").classList.add("hidden");
-
     state.currentMode = "endless";
     state.currentLevel = 0;
     state.endlessFloor = 1;
     state.endlessScore = 0;
     phantom.reset();
     state.gameTime = 0;
-
     startEndlessFloor();
   });
 

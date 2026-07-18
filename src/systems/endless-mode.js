@@ -1,6 +1,8 @@
 // ============================================
-// Endless Mode — Procedural Floors
+// ENDLESS MODE — HELL: Forever Atoning
 // ============================================
+
+import { getRandomMap } from "../levels/story-map-pool.js";
 
 const ENDLESS_MUTATIONS = [
   "canSense",
@@ -10,130 +12,110 @@ const ENDLESS_MUTATIONS = [
   "canSplit",
 ];
 
+export const HELL_PHASES = [
+  {
+    from: 1,
+    to: 3,
+    name: "THE FIRST CIRCLE",
+    subtitle: "Where the newly damned wander.",
+  },
+  {
+    from: 4,
+    to: 7,
+    name: "THE SCREAMING HALLS",
+    subtitle: "Every soul you took has a voice here.",
+  },
+  {
+    from: 8,
+    to: 12,
+    name: "THE WEEPING DARK",
+    subtitle: "The children you left behind are hungry.",
+  },
+  {
+    from: 13,
+    to: 18,
+    name: "THE BLOOD REGISTRY",
+    subtitle: "Your victims remember every wound.",
+  },
+  {
+    from: 19,
+    to: 25,
+    name: "THE UNMAKING",
+    subtitle: "You forget your own name here.",
+  },
+  {
+    from: 26,
+    to: 999,
+    name: "THE PIT",
+    subtitle: "There is no bottom. Only lower.",
+  },
+];
+
+export function getHellPhase(floor) {
+  for (const phase of HELL_PHASES) {
+    if (floor >= phase.from && floor <= phase.to) {
+      return phase;
+    }
+  }
+  return HELL_PHASES[HELL_PHASES.length - 1];
+}
+
+export function getHellDescription(floor) {
+  const phase = getHellPhase(floor);
+  const messages = [
+    `"${phase.subtitle}"`,
+    `"The rift is a lie. You will not escape."`,
+    `"They are waiting. All of them."`,
+    `"You cannot repent. Only endure."`,
+    `"The Silver Shadow rusts here."`,
+    `"Every step is a mile toward nothing."`,
+    `"You dug this pit yourself."`,
+    `"The dead are patient."`,
+    `"Floor ${floor}. It grows stronger. So does your guilt."`,
+    `"Something older watches from below."`,
+    `"You cannot die. That would be mercy."`,
+  ];
+  return messages[floor % messages.length];
+}
+
 export function generateEndlessMap(floor) {
-  const cols = 26;
-  const rows = 20;
-  const map = [];
+  // Rotate through story maps but choose harder ones as floor increases
+  let poolIdx;
+  if (floor <= 3)
+    poolIdx = Math.floor(Math.random() * 3); // 0-2
+  else if (floor <= 7)
+    poolIdx = 2 + Math.floor(Math.random() * 3); // 2-4
+  else poolIdx = 3 + Math.floor(Math.random() * 3); // 3-5
 
-  for (let r = 0; r < rows; r++) {
-    let row = "";
-
-    for (let c = 0; c < cols; c++) {
-      if (r === 0 || r === rows - 1 || c === 0 || c === cols - 1) row += "#";
-      else row += ".";
-    }
-
-    map.push(row);
-  }
-
-  // Horizontal broken walls
-  const wallRows = 3 + Math.floor(floor / 3);
-
-  for (let i = 0; i < wallRows; i++) {
-    const wy = 3 + Math.floor(Math.random() * (rows - 6));
-    const startX = 2 + Math.floor(Math.random() * 6);
-    const len = 3 + Math.floor(Math.random() * 5);
-    const gapPos = startX + Math.floor(Math.random() * len);
-
-    for (let j = 0; j < len && startX + j < cols - 2; j++) {
-      const cx = startX + j;
-
-      if (cx !== gapPos && cx !== gapPos + 1) {
-        map[wy] = replaceAt(map[wy], cx, "#");
-      }
-    }
-  }
-
-  // Vertical broken walls
-  const vWalls = 2 + Math.floor(floor / 4);
-
-  for (let i = 0; i < vWalls; i++) {
-    const wx = 3 + Math.floor(Math.random() * (cols - 6));
-    const startY = 2 + Math.floor(Math.random() * 6);
-    const len = 3 + Math.floor(Math.random() * 4);
-    const gapPos = startY + Math.floor(Math.random() * len);
-
-    for (let j = 0; j < len && startY + j < rows - 2; j++) {
-      const cy = startY + j;
-
-      if (cy !== gapPos && cy !== gapPos + 1) {
-        map[cy] = replaceAt(map[cy], wx, "#");
-      }
-    }
-  }
-
-  // Clear spawn zones
-  clearArea(map, 1, 1, 4, 4);
-  clearArea(map, cols - 5, rows - 5, 4, 4);
-
-  // Player
-  map[2] = replaceAt(map[2], 2, "@");
-
-  // Phantom
-  map[rows - 3] = replaceAt(map[rows - 3], cols - 3, "P");
-
-  // Souls
-  const soulCount = 3 + Math.floor(floor / 2);
-  let placed = 0;
-  let attempts = 0;
-
-  while (placed < soulCount && attempts < 300) {
-    const sx = 2 + Math.floor(Math.random() * (cols - 4));
-    const sy = 2 + Math.floor(Math.random() * (rows - 4));
-
-    if (map[sy][sx] === ".") {
-      map[sy] = replaceAt(map[sy], sx, "S");
-      placed++;
-    }
-
-    attempts++;
-  }
-
-  // Exit
-  map[rows - 2] = replaceAt(map[rows - 2], cols - 2, "E");
-
-  return map;
+  poolIdx = Math.min(5, poolIdx);
+  return getRandomMap(poolIdx);
 }
 
 export function createEndlessLevel(floor) {
   const mutationsForFloor = {};
 
+  // Faster ability unlocks in hell
   ENDLESS_MUTATIONS.forEach((mutation, i) => {
-    if (floor >= (i + 1) * 5) {
+    if (floor >= (i + 1) * 3) {
       mutationsForFloor[mutation] = true;
     }
   });
 
-  const ability =
-    floor % 5 === 0
-      ? ENDLESS_MUTATIONS[
-          Math.min(Math.floor(floor / 5) - 1, ENDLESS_MUTATIONS.length - 1)
-        ]
-          .replace("can", "")
-          .toUpperCase()
-      : "DRIFT";
+  const phase = getHellPhase(floor);
+
+  // Souls scale with floor
+  const soulsNeeded = Math.min(15, 4 + Math.floor(floor / 2));
+
+  // Speed scales
+  const phantomSpeed = 55 + Math.floor(floor * 2.5);
 
   return {
-    name: "FLOOR " + floor,
-    ability,
-    description: `"Floor ${floor}. It grows stronger."`,
+    name: phase.name,
+    ability: `FLOOR ${floor}`,
+    description: getHellDescription(floor),
     mutations: mutationsForFloor,
-    soulsNeeded: 3 + Math.floor(floor / 2),
-    phantomSpeed: 50 + floor * 2,
+    soulsNeeded: soulsNeeded,
+    phantomSpeed: Math.min(140, phantomSpeed),
     map: generateEndlessMap(floor),
   };
-}
-
-function replaceAt(str, index, char) {
-  return str.substring(0, index) + char + str.substring(index + 1);
-}
-
-function clearArea(map, startX, startY, width, height) {
-  for (let y = startY; y < startY + height; y++) {
-    for (let x = startX; x < startX + width; x++) {
-      if (map[y] && map[y][x]) {
-        map[y] = replaceAt(map[y], x, ".");
-      }
-    }
-  }
 }

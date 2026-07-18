@@ -1,9 +1,23 @@
-import { sound } from "./systems/sound-system.js";
-import { sprites } from "./systems/sprites.js";
-
 // ============================================
 // SHIFTING SHADOWS — Main Game Engine
 // ============================================
+
+import { sound } from "./systems/sound-system.js";
+import { sprites } from "./systems/sprites.js";
+import { player } from "./entities/player.js";
+import {
+  phantom,
+  phantomAI,
+  secondPhantom,
+  setSecondPhantom,
+  clearSecondPhantom,
+} from "./entities/phantom.js";
+import {
+  rectsCollide,
+  distanceBetween,
+  collidesWithWalls,
+  hasLineOfSight,
+} from "./utils/helpers.js";
 
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
@@ -13,8 +27,8 @@ ctx.imageSmoothingEnabled = false;
 
 // ── Game Constants ──
 const TILE_SIZE = 48;
-const COLS = Math.floor(canvas.width / TILE_SIZE);
-const ROWS = Math.floor(canvas.height / TILE_SIZE);
+let currentMapCols = 24;
+let currentMapRows = 18;
 
 // ── Camera ──
 const camera = {
@@ -24,11 +38,8 @@ const camera = {
   targetY: 0,
 
   update(dt) {
-    // Always center on player
     this.targetX = player.x + player.width / 2 - canvas.width / 2;
     this.targetY = player.y + player.height / 2 - canvas.height / 2;
-
-    // Smooth lerp — never clamp
     this.x += (this.targetX - this.x) * 0.08;
     this.y += (this.targetY - this.y) * 0.08;
   },
@@ -40,9 +51,6 @@ const camera = {
     this.targetY = this.y;
   },
 };
-
-let currentMapCols = 24;
-let currentMapRows = 18;
 
 // ── Game State ──
 const GameState = {
@@ -63,6 +71,7 @@ let lastTime = 0;
 let soulFlashTimer = 0;
 let storyQueue = [];
 let waitingForStory = false;
+let storyCallback = null;
 
 // ── Input Manager ──
 const keys = {};
@@ -86,80 +95,9 @@ window.addEventListener("keydown", (e) => {
 
 window.addEventListener("keyup", (e) => {
   keys[e.key.toLowerCase()] = false;
-
-  // Fix stuck keys
   if (e.key.toLowerCase() === "e") keys["e"] = false;
   if (e.key.toLowerCase() === "f") keys["f"] = false;
 });
-
-// ── Player Object ──
-const player = {
-  x: 0,
-  y: 0,
-  width: TILE_SIZE - 12,
-  height: TILE_SIZE - 12,
-  speed: 120,
-  runSpeed: 210,
-  isRunning: false,
-  inLight: false,
-  sanity: 100,
-  corruption: 0,
-  souls: 0,
-  candles: 3,
-  rocks: 2,
-  soulTrail: [],
-  trailTimer: 0,
-  moving: false,
-  direction: { x: 0, y: 0 },
-
-  reset() {
-    this.sanity = 100;
-    this.corruption = 0;
-    this.souls = 0;
-    this.candles = 3;
-    this.rocks = 2;
-    this.soulTrail = [];
-    this.trailTimer = 0;
-    this.moving = false;
-    this.isRunning = false;
-  },
-};
-
-// ── Phantom Object ──
-const phantom = {
-  x: 0,
-  y: 0,
-  width: TILE_SIZE - 12,
-  height: TILE_SIZE - 12,
-  speed: 55,
-  state: "IDLE",
-  target: null,
-  searchTimer: 0,
-  wanderTarget: null,
-  wanderTimer: 0,
-  canDrift: true,
-  canSense: false,
-  canManifest: false,
-  canTrace: false,
-  canPhase: false,
-  canSplit: false,
-  opacity: 0.6,
-  pulseTimer: 0,
-
-  reset() {
-    this.state = "IDLE";
-    this.target = null;
-    this.searchTimer = 0;
-    this.wanderTarget = null;
-    this.wanderTimer = 0;
-    this.canDrift = true;
-    this.canSense = false;
-    this.canManifest = false;
-    this.canTrace = false;
-    this.canPhase = false;
-    this.canSplit = false;
-  },
-};
 
 // ── Game Objects ──
 let walls = [];
@@ -168,111 +106,99 @@ let exitRift = null;
 let candles = [];
 let rocks = [];
 let soulsNeeded = 0;
-let secondPhantom = null;
 const particles = [];
-
-// ── Phantom AI State ──
-const phantomAI = {
-  lastKnownPlayer: null,
-  alertLevel: 0,
-  patrolPoints: [],
-  patrolIndex: 0,
-  lostTimer: 0,
-  huntGrid: [],
-  huntIndex: 0,
-  chaseSpeed: 1.5,
-  accelerationTimer: 0,
-  lastPatrol: null,
-};
 
 // ── Story Data ──
 const STORY = {
-  intro: `You wake up in a place that shouldn't exist.<br><br>
-    The air is heavy. The walls breathe.<br><br>
-    You don't remember how you got here.<br>
-    You only know one thing:<br><br>
-    <span class="story-highlight">Something else is here.</span><br><br>
-    It doesn't know what it is yet.<br>
-    But it's learning.`,
+  intro: `You were a knight.<br><br>
+    The kingdom's finest blade.<br>
+    They called you <span class="story-highlight">The Silver Shadow</span>.<br><br>
+    You killed without mercy.<br>
+    Soldiers. Rebels. Innocents.<br>
+    You stopped counting after the first hundred.<br><br>
+    Then one night, something followed you home.<br><br>
+    Not a person.<br>
+    <span class="story-danger">A phantom.</span><br><br>
+    Born from every soul you took.<br>
+    It doesn't want revenge.<br>
+    It wants to <span class="story-highlight">become you</span>.`,
 
   chapters: [
-    // Chapter 1: The Awakening
     {
       before: [
-        // Before Level 1
-        `The facility hums with a frequency<br>
-        you can feel in your teeth.<br><br>
-        <span class="story-highlight">Collect the lost souls.</span><br>
-        Seal them in the rift.<br><br>
-        Something drifts through these halls.<br>
-        It can barely move.<br><br>
-        <span class="story-danger">For now.</span>`,
+        `The dungeon beneath the castle.<br>
+        This is where they kept the prisoners.<br>
+        <span class="story-highlight">Your</span> prisoners.<br><br>
+        Something drifts through these halls now.<br>
+        A shadow made of screams.<br><br>
+        It can barely move. It's still learning<br>
+        what it is.<br><br>
+        <span class="story-danger">Collect the souls. Seal the rift. Escape.</span>`,
 
-        // Before Level 2
-        `It heard you.<br><br>
-        When you ran through that corridor,<br>
-        when your feet hit the cold floor —<br><br>
-        <span class="story-danger">it turned toward you.</span><br><br>
-        Walk slowly.<br>
-        <span class="story-highlight">Or don't walk at all.</span>`,
+        `You ran.<br><br>
+        Your armor clanked against the stone floor<br>
+        and <span class="story-danger">it heard you</span>.<br><br>
+        Every soul you took gave it a new sense.<br>
+        First movement. Now hearing.<br><br>
+        <span class="story-highlight">Walk slowly, knight.<br>
+        Your victims are listening.</span>`,
       ],
     },
-    // Chapter 2: It Learns
     {
       before: [
-        // Before Level 3
-        `You lit a candle to see the path ahead.<br><br>
-        That was a mistake.<br><br>
-        The light that helps you see<br>
-        <span class="story-danger">also helps it see you.</span><br><br>
-        The darkness is your enemy.<br>
-        The light is its ally.<br><br>
-        <span class="story-highlight">Choose carefully.</span>`,
+        `You lit a torch to find your way.<br><br>
+        The light fell on the phantom's face<br>
+        and you saw it clearly for the first time.<br><br>
+        <span class="story-danger">It had your face.</span><br><br>
+        An older version. Hollow eyes.<br>
+        A mouth full of teeth that used to be words.<br><br>
+        It sees you now. In the light.<br>
+        <span class="story-highlight">The darkness is safer.</span>`,
 
-        // Before Level 4
-        `You thought you lost it.<br>
-        You hid in the corner and held your breath.<br><br>
-        But it found where you had been.<br>
-        It followed your footsteps.<br>
-        <span class="story-danger">Your trail of existence.</span><br><br>
-        You can't stay still.<br>
-        You can't go back.<br><br>
-        <span class="story-highlight">Only forward.</span>`,
+        `You thought you escaped.<br>
+        You hid behind a wall and held your breath.<br><br>
+        But it found your footprints.<br>
+        <span class="story-danger">The trail of blood you've always left behind.</span><br><br>
+        Every step you take leaves a mark.<br>
+        Every mark is a memory of someone who died.<br><br>
+        <span class="story-highlight">You can't outrun your past.</span>`,
       ],
     },
-    // Chapter 3: No Escape
     {
       before: [
-        // Before Level 5
-        `You pressed your back against the wall.<br>
-        Solid. Safe. A barrier between you and it.<br><br>
-        Then its hand came through.<br><br>
-        <span class="story-danger">Walls mean nothing now.</span><br><br>
-        There is nowhere to hide.<br>
-        <span class="story-highlight">There is only the rift.</span>`,
+        `The walls shook.<br><br>
+        You pressed your back against cold stone<br>
+        and felt something reach through it.<br><br>
+        <span class="story-danger">Its hand came through the wall.</span><br>
+        Made of smoke and sorrow.<br><br>
+        The barriers between you and your sins<br>
+        are dissolving.<br><br>
+        <span class="story-highlight">There is nowhere left to hide.</span>`,
 
-        // Before Level 6
-        `You saw it split apart.<br><br>
-        Where there was one shadow,<br>
-        <span class="story-danger">now there are two.</span><br><br>
+        `It split in two.<br><br>
+        Two phantoms now. Two shadows.<br>
+        Made from the lives you ended.<br><br>
+        One for the soldiers you killed in battle.<br>
+        <span class="story-danger">One for the innocents.</span><br><br>
         They move differently.<br>
-        They think differently.<br><br>
-        But they both want the same thing.<br><br>
-        <span class="story-highlight">You.</span>`,
+        But they share one purpose.<br><br>
+        <span class="story-highlight">To make you feel what they felt.</span>`,
       ],
     },
   ],
 
   ending: `The rift seals behind you.<br><br>
-    The shadows scream — a sound<br>
-    that isn't quite sound.<br><br>
-    You made it out.<br><br>
-    But something followed you.<br>
-    Not through the rift.<br>
-    <span class="story-danger">Through your mind.</span><br><br>
-    You close your eyes and see it.<br>
-    Drifting. Learning. Waiting.<br><br>
-    <span class="story-highlight">It never stops learning.</span><br><br>
+    You collapse on the other side.<br>
+    Breathing. Alive. Free.<br><br>
+    But you know the truth now.<br><br>
+    The phantom wasn't a monster.<br>
+    <span class="story-danger">It was a mirror.</span><br><br>
+    Every soul you took lives inside it.<br>
+    Every face you forgot — it remembers.<br><br>
+    You escaped the dungeon.<br>
+    But the dungeon is inside you.<br><br>
+    And in the darkness behind your eyes,<br>
+    <span class="story-highlight">it's still learning.</span><br><br>
     <span class="story-danger">SHIFTING SHADOWS</span>`,
 };
 
@@ -506,12 +432,12 @@ function loadLevel(levelIdx) {
           walls.push({ x, y, width: TILE_SIZE, height: TILE_SIZE });
           break;
         case "@":
-          player.x = x + 4;
-          player.y = y + 4;
+          player.x = x + 6;
+          player.y = y + 6;
           break;
         case "P":
-          phantom.x = x + 4;
-          phantom.y = y + 4;
+          phantom.x = x + 6;
+          phantom.y = y + 6;
           break;
         case "S":
           souls.push({
@@ -535,6 +461,24 @@ function loadLevel(levelIdx) {
     }
   }
 
+  // Pre-placed candles
+  const candleCount = 4 + Math.floor(Math.random() * 3);
+  for (let i = 0; i < candleCount; i++) {
+    let attempts = 0;
+    while (attempts < 100) {
+      const rx = 2 + Math.floor(Math.random() * (currentMapCols - 4));
+      const ry = 2 + Math.floor(Math.random() * (currentMapRows - 4));
+      const x = rx * TILE_SIZE + 24;
+      const y = ry * TILE_SIZE + 24;
+
+      if (!collidesWithWalls(x - 12, y - 12, 24, 24)) {
+        candles.push({ x: x, y: y, radius: 100, life: 99999, permanent: true });
+        break;
+      }
+      attempts++;
+    }
+  }
+
   player.reset();
   phantom.state = "IDLE";
   phantomAI.lastKnownPlayer = null;
@@ -543,8 +487,8 @@ function loadLevel(levelIdx) {
 
   if (phantom.canSplit) {
     secondPhantom = {
-      x: canvas.width - 100,
-      y: canvas.height - 100,
+      x: (currentMapCols - 3) * TILE_SIZE,
+      y: (currentMapRows - 3) * TILE_SIZE,
       width: phantom.width,
       height: phantom.height,
       speed: phantom.speed * 0.85,
@@ -556,56 +500,7 @@ function loadLevel(levelIdx) {
     };
   }
 
-  // Spawn random pre-placed candles
-  const candleCount = 4 + Math.floor(Math.random() * 3);
-  for (let i = 0; i < candleCount; i++) {
-    let attempts = 0;
-    while (attempts < 100) {
-      const rx = 2 + Math.floor(Math.random() * (currentMapCols - 4));
-      const ry = 2 + Math.floor(Math.random() * (currentMapRows - 4));
-      const x = rx * TILE_SIZE + 24;
-      const y = ry * TILE_SIZE + 24;
-
-      if (!collidesWithWalls(x - 12, y - 12, 24, 24)) {
-        candles.push({
-          x: x,
-          y: y,
-          radius: 100,
-          life: 99999,
-          permanent: true,
-        });
-        break;
-      }
-      attempts++;
-    }
-  }
-
-  // Snap camera to player immediately
   camera.snap();
-}
-
-// ── Collision Detection ──
-function rectsCollide(a, b) {
-  return (
-    a.x < b.x + b.width &&
-    a.x + a.width > b.x &&
-    a.y < b.y + b.height &&
-    a.y + a.height > b.y
-  );
-}
-
-function collidesWithWalls(x, y, width, height) {
-  const rect = { x, y, width, height };
-  for (const wall of walls) {
-    if (rectsCollide(rect, wall)) return true;
-  }
-  return false;
-}
-
-function distanceBetween(a, b) {
-  const dx = a.x - b.x;
-  const dy = a.y - b.y;
-  return Math.sqrt(dx * dx + dy * dy);
 }
 
 // ── Player Update ──
@@ -641,7 +536,7 @@ function updatePlayer(dt) {
     player.y = newY;
   }
 
-  // Footstep sounds
+  // Footsteps
   if (player.moving) {
     if (!player._stepTimer) player._stepTimer = 0;
     player._stepTimer += dt;
@@ -723,12 +618,8 @@ function updatePlayer(dt) {
     });
   }
 
-  if (player.sanity <= 0) {
-    gameOver("Your mind faded into nothing.");
-  }
-  if (player.corruption >= 100) {
-    gameOver("You became one of them.");
-  }
+  if (player.sanity <= 0) gameOver("Your mind faded into nothing.");
+  if (player.corruption >= 100) gameOver("You became one of them.");
   if (rectsCollide(player, phantom)) {
     sound.playJumpscare();
     gameOver("The shadow consumed you.");
@@ -763,7 +654,6 @@ function moveToward(target, dt, speedMult) {
       return;
     }
 
-    // Try direct movement first
     const canMoveX = !collidesWithWalls(
       phantom.x + moveX,
       phantom.y,
@@ -782,7 +672,6 @@ function moveToward(target, dt, speedMult) {
       phantom.y += moveY;
     } else if (canMoveX) {
       phantom.x += moveX;
-      // Try sliding along wall
       const slideY = phantom.speed * speedMult * dt * 0.5;
       if (
         !collidesWithWalls(
@@ -805,7 +694,6 @@ function moveToward(target, dt, speedMult) {
       }
     } else if (canMoveY) {
       phantom.y += moveY;
-      // Try sliding along wall
       const slideX = phantom.speed * speedMult * dt * 0.5;
       if (
         !collidesWithWalls(
@@ -827,7 +715,6 @@ function moveToward(target, dt, speedMult) {
         phantom.x -= slideX;
       }
     } else {
-      // Completely stuck — try random direction to unstick
       const angles = [
         0,
         Math.PI / 2,
@@ -871,9 +758,8 @@ function updatePhantom(dt) {
       phantomAI.alertLevel = Math.max(0, phantomAI.alertLevel - 10 * dt);
       break;
     case "ALERTED":
-      if (phantomAI.lastKnownPlayer) {
+      if (phantomAI.lastKnownPlayer)
         moveToward(phantomAI.lastKnownPlayer, dt, 0.9);
-      }
       checkPhantomSenses();
       phantomAI.alertLevel += 20 * dt;
       if (phantomAI.alertLevel >= 100) {
@@ -896,9 +782,8 @@ function updatePhantom(dt) {
       }
       break;
     case "LOST":
-      if (phantomAI.lastKnownPlayer) {
+      if (phantomAI.lastKnownPlayer)
         moveToward(phantomAI.lastKnownPlayer, dt, 0.8);
-      }
       checkPhantomSenses();
       phantomAI.lostTimer -= dt;
       if (phantomAI.lostTimer <= 0) {
@@ -915,7 +800,7 @@ function updatePhantom(dt) {
   }
 
   for (let i = candles.length - 1; i >= 0; i--) {
-    candles[i].life -= dt;
+    if (!candles[i].permanent) candles[i].life -= dt;
     if (candles[i].life <= 0) candles.splice(i, 1);
   }
   for (let i = rocks.length - 1; i >= 0; i--) {
@@ -926,35 +811,25 @@ function updatePhantom(dt) {
 
 function patrolWander(dt) {
   phantom.wanderTimer -= dt;
-
   if (!phantomAI.lastPatrol || phantom.wanderTimer <= 0) {
-    // Try to find a valid open position to wander to
     let found = false;
     for (let attempt = 0; attempt < 20; attempt++) {
       const testX = phantom.x + (Math.random() - 0.5) * 400;
       const testY = phantom.y + (Math.random() - 0.5) * 400;
-
       if (!collidesWithWalls(testX, testY, phantom.width, phantom.height)) {
         phantomAI.lastPatrol = { x: testX, y: testY };
         found = true;
         break;
       }
     }
-
-    if (!found) {
-      // Fallback — just move slightly
+    if (!found)
       phantomAI.lastPatrol = {
         x: phantom.x + (Math.random() - 0.5) * 100,
         y: phantom.y + (Math.random() - 0.5) * 100,
       };
-    }
-
     phantom.wanderTimer = 2 + Math.random() * 3;
   }
-
-  if (phantomAI.lastPatrol) {
-    moveToward(phantomAI.lastPatrol, dt, 0.5);
-  }
+  if (phantomAI.lastPatrol) moveToward(phantomAI.lastPatrol, dt, 0.5);
 }
 
 function buildHuntGrid() {
@@ -995,13 +870,13 @@ function canDetectPlayer() {
   if (
     phantom.canSense &&
     player.isRunning &&
-    distanceBetween(phantom, player) < 250
+    distanceBetween(phantom, player) < 180
   )
     return true;
   if (
     phantom.canManifest &&
     player.inLight &&
-    distanceBetween(phantom, player) < 300 &&
+    distanceBetween(phantom, player) < 220 &&
     hasLineOfSight(phantom, player)
   )
     return true;
@@ -1029,7 +904,7 @@ function checkPhantomSenses() {
     if (dist < 180) {
       phantomAI.lastKnownPlayer = { x: player.x, y: player.y };
       phantom.state = "ALERTED";
-      phantomAI.alertLevel += 30 * (1 - dist / 250);
+      phantomAI.alertLevel += 30 * (1 - dist / 180);
     }
   }
   if (phantom.canManifest && player.inLight) {
@@ -1056,27 +931,6 @@ function checkPhantomSenses() {
   }
 }
 
-function hasLineOfSight(a, b) {
-  const steps = 20;
-  const dx = (b.x - a.x) / steps;
-  const dy = (b.y - a.y) / steps;
-  for (let i = 0; i < steps; i++) {
-    const checkX = a.x + dx * i;
-    const checkY = a.y + dy * i;
-    for (const wall of walls) {
-      if (
-        checkX >= wall.x &&
-        checkX <= wall.x + wall.width &&
-        checkY >= wall.y &&
-        checkY <= wall.y + wall.height
-      ) {
-        return false;
-      }
-    }
-  }
-  return true;
-}
-
 // ── Second Phantom ──
 function updateSecondPhantom(dt) {
   if (!secondPhantom) return;
@@ -1100,6 +954,7 @@ function updateSecondPhantom(dt) {
   }
 
   if (rectsCollide(player, secondPhantom)) {
+    sound.playJumpscare();
     if (currentMode === "story") gameOver("A second shadow consumed you.");
     else endlessGameOver();
   }
@@ -1161,15 +1016,13 @@ function render() {
   if (!sprites.loaded) return;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Background
   ctx.fillStyle = "#0a0812";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Apply camera transform
   ctx.save();
   ctx.translate(-camera.x, -camera.y);
 
-  // Floor tiles — darkened
+  // Floors
   if (sprites.sprites.floor) {
     for (let row = 0; row < currentMapRows; row++) {
       for (let col = 0; col < currentMapCols; col++) {
@@ -1182,12 +1035,11 @@ function render() {
         );
       }
     }
-    // Dark overlay on floors
-    ctx.fillStyle = "rgba(20, 0, 40, 0.5)";
+    ctx.fillStyle = "rgba(10, 0, 20, 0.75)";
     ctx.fillRect(0, 0, currentMapCols * TILE_SIZE, currentMapRows * TILE_SIZE);
   }
 
-  // Ambient particles
+  // Particles
   for (const p of particles) {
     ctx.fillStyle = `rgba(150, 130, 255, ${p.opacity})`;
     ctx.beginPath();
@@ -1195,19 +1047,15 @@ function render() {
     ctx.fill();
   }
 
-  // Walls — brighter and outlined
+  // Walls
   for (const wall of walls) {
     if (sprites.sprites.wall) {
       ctx.drawImage(sprites.sprites.wall, wall.x, wall.y, TILE_SIZE, TILE_SIZE);
-
-      // Purple glow outline
-      ctx.strokeStyle = "rgba(107, 0, 255, 0.4)";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(wall.x, wall.y, TILE_SIZE, TILE_SIZE);
-
-      // Slight dark shadow on top
-      ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
-      ctx.fillRect(wall.x, wall.y, TILE_SIZE, 4);
+      ctx.fillStyle = "rgba(20, 0, 30, 0.3)";
+      ctx.fillRect(wall.x, wall.y, TILE_SIZE, TILE_SIZE);
+      ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+      ctx.fillStyle = "rgba(20, 0, 30, 0.3)";
+      ctx.fillRect(wall.x, wall.y, TILE_SIZE, TILE_SIZE);
     } else {
       ctx.fillStyle = "#1a1425";
       ctx.fillRect(wall.x, wall.y, TILE_SIZE, TILE_SIZE);
@@ -1230,36 +1078,25 @@ function render() {
   for (const soul of souls) {
     if (!soul.collected) {
       const bob = Math.sin(gameTime * 3 + soul.x) * 3;
-      const glowScale = 1 + Math.sin(gameTime * 2) * 0.2;
-
-      // Glow behind
-      ctx.save();
-      ctx.globalAlpha = 0.3 + Math.sin(gameTime * 2) * 0.15;
-      ctx.drawImage(
-        sprites.sprites.soul,
-        soul.x - 12,
-        soul.y - 12 + bob,
-        48,
-        48,
-      );
-      ctx.restore();
-
-      // Soul sprite
-      ctx.drawImage(sprites.sprites.soul, soul.x, soul.y + bob, 24, 24);
+      if (sprites.sprites.soul) {
+        ctx.drawImage(sprites.sprites.soul, soul.x, soul.y + bob, 24, 24);
+      } else {
+        ctx.fillStyle = "#aaccff";
+        ctx.beginPath();
+        ctx.arc(soul.x + 12, soul.y + 12 + bob, 8, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
   }
 
-  // Exit rift
+  // Exit Rift
   if (exitRift) {
     if (exitRift.active) {
-      // Active rift — bigger, pulsing, glowing green
       const riftPulse = 1.3 + Math.sin(gameTime * 4) * 0.15;
       const riftSize = TILE_SIZE * riftPulse;
       const riftOffset = (riftSize - TILE_SIZE) / 2;
-
       if (sprites.sprites.rift) {
         ctx.save();
-        // Green glow tint when active
         ctx.shadowColor = "#00ffaa";
         ctx.shadowBlur = 30;
         ctx.drawImage(
@@ -1273,7 +1110,6 @@ function render() {
         ctx.restore();
       }
     } else {
-      // Inactive rift — dim, smaller
       if (sprites.sprites.rift) {
         ctx.save();
         ctx.globalAlpha = 0.4;
@@ -1291,19 +1127,8 @@ function render() {
 
   // Candles
   for (const candle of candles) {
-    ctx.drawImage(sprites.sprites.candle, candle.x - 8, candle.y - 4, 16, 16);
-
-    // Animated flame
-    const flameOffset = Math.sin(gameTime * 8 + candle.x) * 2;
-    ctx.drawImage(
-      sprites.sprites.candle,
-      candle.x - 8 + flameOffset,
-      candle.y - 14,
-      16,
-      16,
-    );
-
-    // Light radius
+    if (sprites.sprites.candle)
+      ctx.drawImage(sprites.sprites.candle, candle.x - 8, candle.y - 4, 16, 16);
     ctx.strokeStyle = "rgba(255, 170, 0, 0.05)";
     ctx.beginPath();
     ctx.arc(candle.x, candle.y, candle.radius, 0, Math.PI * 2);
@@ -1312,7 +1137,9 @@ function render() {
 
   // Rocks
   for (const rock of rocks) {
-    ctx.drawImage(sprites.sprites.rock, rock.x - 6, rock.y - 6, 12, 12);
+    if (sprites.sprites.rock) {
+      ctx.drawImage(sprites.sprites.rock, rock.x - 6, rock.y - 6, 12, 12);
+    }
     if (rock.timer > 0) {
       const wave = (3 - rock.timer) / 3;
       ctx.strokeStyle = `rgba(255, 255, 100, ${0.2 - wave * 0.2})`;
@@ -1323,12 +1150,20 @@ function render() {
   }
 
   // Player
-  const playerSprite = player.isRunning
-    ? sprites.sprites.player
-    : sprites.sprites.player;
-  ctx.drawImage(playerSprite, player.x, player.y, player.width, player.height);
+  const playerSprite = sprites.sprites.player;
+  if (playerSprite) {
+    ctx.drawImage(
+      playerSprite,
+      player.x,
+      player.y,
+      player.width,
+      player.height,
+    );
+  } else {
+    ctx.fillStyle = "#c8d8ff";
+    ctx.fillRect(player.x, player.y, player.width, player.height);
+  }
 
-  // Player running indicator
   if (player.isRunning) {
     ctx.strokeStyle = "rgba(255, 100, 100, 0.3)";
     ctx.setLineDash([4, 4]);
@@ -1347,76 +1182,47 @@ function render() {
   // Phantom
   const pcenterX = phantom.x + phantom.width / 2;
   const pcenterY = phantom.y + phantom.height / 2;
-
-  // Tendrils behind phantom
-  ctx.save();
-  for (let i = 0; i < 6; i++) {
-    const angle = (phantom.pulseTimer * 0.5 + i * 1.05) % (Math.PI * 2);
-    const length = 15 + Math.sin(phantom.pulseTimer * 3 + i) * 10;
-    const tendrilX = pcenterX + Math.cos(angle) * length;
-    const tendrilY = pcenterY + Math.sin(angle) * length;
-    ctx.strokeStyle = `rgba(107, 0, 255, 0.2)`;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(pcenterX, pcenterY);
-    ctx.quadraticCurveTo(
-      pcenterX + Math.cos(angle + 0.5) * length * 0.5,
-      pcenterY + Math.sin(angle + 0.5) * length * 0.5,
-      tendrilX,
-      tendrilY,
-    );
-    ctx.stroke();
-  }
-  ctx.restore();
-
-  // Phantom sprite
-  const phantomSprite =
-    phantom.state === "CHASE" || phantom.state === "HUNT"
-      ? sprites.sprites.phantomChase
-      : sprites.sprites.phantom;
+  const phantomSprite = sprites.sprites.phantom;
   const phantomAlpha = 0.7 + Math.sin(phantom.pulseTimer * 2) * 0.2;
-  ctx.save();
-  ctx.globalAlpha = phantomAlpha;
-  ctx.drawImage(
-    phantomSprite,
-    phantom.x - 4,
-    phantom.y - 4,
-    TILE_SIZE,
-    TILE_SIZE,
-  );
-  ctx.restore();
 
-  // Demonic red eyes ON TOP of phantom sprite
+  if (phantomSprite) {
+    ctx.save();
+    ctx.globalAlpha = phantomAlpha;
+    ctx.shadowColor = phantom.state === "CHASE" ? "#ff0000" : "#8800ff";
+    ctx.shadowBlur = phantom.state === "CHASE" ? 25 : 15;
+    ctx.drawImage(
+      phantomSprite,
+      phantom.x - 4,
+      phantom.y - 4,
+      TILE_SIZE,
+      TILE_SIZE,
+    );
+
+    if (phantom.state === "CHASE" || phantom.state === "HUNT") {
+      ctx.globalCompositeOperation = "source-atop";
+      ctx.fillStyle = "rgba(255, 0, 0, 0.4)";
+      ctx.fillRect(phantom.x - 4, phantom.y - 4, TILE_SIZE, TILE_SIZE);
+      ctx.globalCompositeOperation = "source-over";
+    }
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  }
+
+  // Demonic red eyes ON the phantom's face
   const eyeGlow = 0.7 + Math.sin(phantom.pulseTimer * 4) * 0.3;
-  const eyeSize = phantom.state === "CHASE" ? 4 : 3;
+  const eyeSize = phantom.state === "CHASE" ? 2.5 : 2;
   ctx.save();
   ctx.fillStyle = `rgba(255, 0, 0, ${eyeGlow})`;
   ctx.shadowColor = "#ff0000";
-  ctx.shadowBlur = 10;
+  ctx.shadowBlur = 8;
   ctx.beginPath();
-  ctx.arc(pcenterX - 6, pcenterY - 6, eyeSize, 0, Math.PI * 2);
+  ctx.arc(pcenterX - 5, pcenterY - 4, eyeSize, 0, Math.PI * 2);
   ctx.fill();
   ctx.beginPath();
-  ctx.arc(pcenterX + 6, pcenterY - 6, eyeSize, 0, Math.PI * 2);
+  ctx.arc(pcenterX + 5, pcenterY - 4, eyeSize, 0, Math.PI * 2);
   ctx.fill();
   ctx.shadowBlur = 0;
   ctx.restore();
-
-  // Chase indicator
-  if (phantom.state === "CHASE") {
-    const chaseAlpha = 0.1 + Math.sin(phantom.pulseTimer * 6) * 0.1;
-    ctx.strokeStyle = `rgba(255, 0, 50, ${chaseAlpha})`;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(
-      pcenterX,
-      pcenterY,
-      30 + Math.sin(phantom.pulseTimer * 4) * 5,
-      0,
-      Math.PI * 2,
-    );
-    ctx.stroke();
-  }
 
   // Second Phantom
   if (secondPhantom) {
@@ -1424,7 +1230,6 @@ function render() {
     const spCX = sp.x + sp.width / 2;
     const spCY = sp.y + sp.height / 2;
 
-    // Tendrils
     ctx.save();
     for (let i = 0; i < 4; i++) {
       const angle = (sp.pulseTimer * 0.7 + i * 1.57) % (Math.PI * 2);
@@ -1443,50 +1248,72 @@ function render() {
     }
     ctx.restore();
 
-    // Second phantom sprite
-    const spAlpha = 0.6 + Math.sin(sp.pulseTimer * 2.5) * 0.15;
+    if (sprites.sprites.phantom2) {
+      const spAlpha = 0.6 + Math.sin(sp.pulseTimer * 2.5) * 0.15;
+      ctx.save();
+      ctx.globalAlpha = spAlpha;
+      ctx.shadowColor = "#cc00ff";
+      ctx.shadowBlur = 20;
+      ctx.drawImage(
+        sprites.sprites.phantom2,
+        sp.x - 4,
+        sp.y - 4,
+        TILE_SIZE,
+        TILE_SIZE,
+      );
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    }
+
+    // Glowing eyes for the second phantom
+    const spEyeGlow = 0.6 + Math.sin(sp.pulseTimer * 4) * 0.3;
     ctx.save();
-    ctx.globalAlpha = spAlpha;
-    ctx.drawImage(
-      sprites.sprites.phantom2,
-      sp.x - 4,
-      sp.y - 4,
-      TILE_SIZE,
-      TILE_SIZE,
-    );
+    ctx.fillStyle = `rgba(200, 0, 255, ${spEyeGlow})`;
+    ctx.shadowColor = "#cc00ff";
+    ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.arc(spCX - 5, spCY - 4, 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(spCX + 5, spCY - 4, 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
     ctx.restore();
   }
 
-  // Purple eyes on second phantom
-  const spEyeGlow = 0.6 + Math.sin(sp.pulseTimer * 4) * 0.3;
-  ctx.save();
-  ctx.fillStyle = `rgba(200, 0, 255, ${spEyeGlow})`;
-  ctx.shadowColor = "#cc00ff";
-  ctx.shadowBlur = 8;
-  ctx.beginPath();
-  ctx.arc(spCX - 5, spCY - 5, 2.5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(spCX + 5, spCY - 5, 2.5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.shadowBlur = 0;
   ctx.restore();
 
-  // End camera transform
-  ctx.restore();
-
-  // ── DARKNESS OVERLAY (screen space) ──
+  // ── SCREEN SPACE ──
   drawDarkness();
 
-  // ── SOUL FLASH ──
   if (soulFlashTimer > 0) {
     soulFlashTimer -= 0.016;
     ctx.fillStyle = `rgba(200, 216, 255, ${soulFlashTimer})`;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
-  // ── PROXIMITY EFFECTS ──
   const distToPhantom = distanceBetween(player, phantom);
+
+  sound.updatePhantomDrone(distToPhantom);
+  if (!player._heartbeatTimer) player._heartbeatTimer = 0;
+  if (distToPhantom < 200) {
+    player._heartbeatTimer += 0.016;
+    const heartInterval = 0.3 + (distToPhantom / 200) * 0.7;
+    if (player._heartbeatTimer >= heartInterval) {
+      player._heartbeatTimer = 0;
+      sound.playHeartbeat();
+    }
+  } else {
+    player._heartbeatTimer = 0;
+  }
+
+  if (distToPhantom < 200) {
+    const heartRate = Math.max(0.5, distToPhantom / 200) * 2;
+    const heartBeat = Math.abs(Math.sin(gameTime * (Math.PI / heartRate)));
+    const heartAlpha = ((200 - distToPhantom) / 200) * 0.08 * heartBeat;
+    ctx.fillStyle = `rgba(255, 0, 0, ${heartAlpha})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
 
   if (distToPhantom < 250) {
     const intensity = (250 - distToPhantom) / 250;
@@ -1522,35 +1349,8 @@ function render() {
     }
   }
 
-  // Update phantom drone volume
-  sound.updatePhantomDrone(distToPhantom);
-
-  // Heartbeat sound
-  if (!player._heartbeatTimer) player._heartbeatTimer = 0;
-  if (distToPhantom < 200) {
-    player._heartbeatTimer += 0.016;
-    const heartInterval = 0.3 + (distToPhantom / 200) * 0.7;
-    if (player._heartbeatTimer >= heartInterval) {
-      player._heartbeatTimer = 0;
-      sound.playHeartbeat();
-    }
-  } else {
-    player._heartbeatTimer = 0;
-  }
-
-  if (distToPhantom < 200) {
-    const heartRate = Math.max(0.5, distToPhantom / 200) * 2;
-    const heartBeat = Math.abs(Math.sin(gameTime * (Math.PI / heartRate)));
-    const heartAlpha = ((200 - distToPhantom) / 200) * 0.08 * heartBeat;
-    ctx.fillStyle = `rgba(255, 0, 0, ${heartAlpha})`;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-  }
-
-  // ── HORROR EFFECTS ──
-
-  // Screen tear glitch when phantom is hunting
+  // HORROR EFFECTS
   if (phantom.state === "CHASE" || phantom.state === "HUNT") {
-    // Frequent screen tears
     if (Math.random() < 0.15) {
       const tearY = Math.floor(Math.random() * canvas.height);
       const tearHeight = 3 + Math.floor(Math.random() * 15);
@@ -1565,16 +1365,12 @@ function render() {
         ctx.putImageData(imageData, tearShift, tearY);
       } catch (e) {}
     }
-
-    // Color inversion flashes
     if (Math.random() < 0.04) {
       ctx.globalCompositeOperation = "difference";
       ctx.fillStyle = `rgba(255, 255, 255, ${0.05 + Math.random() * 0.1})`;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.globalCompositeOperation = "source-over";
     }
-
-    // Chromatic aberration
     if (Math.random() < 0.06) {
       try {
         const shift = 3 + Math.random() * 5;
@@ -1586,7 +1382,6 @@ function render() {
     }
   }
 
-  // Phantom whisper text — MUCH more frequent
   if (distToPhantom < 300 && Math.random() < 0.025) {
     sound.playWhisper();
     const whispers = [
@@ -1616,7 +1411,6 @@ function render() {
     ctx.restore();
   }
 
-  // Static noise when sanity is low
   if (player.sanity < 50) {
     const intensity = (50 - player.sanity) / 50;
     if (Math.random() < intensity * 0.5) {
@@ -1625,8 +1419,6 @@ function render() {
       ctx.fillStyle = `rgba(255, 255, 255, ${intensity * 0.05})`;
       ctx.fillRect(0, stripY, canvas.width, stripH);
     }
-
-    // Occasional full static burst
     if (Math.random() < intensity * 0.02) {
       for (let i = 0; i < 50; i++) {
         const sx = Math.random() * canvas.width;
@@ -1638,39 +1430,29 @@ function render() {
     }
   }
 
-  // Eyes in the darkness — more frequent
   if (Math.random() < 0.008 && distToPhantom > 150) {
     const screenX = Math.random() * canvas.width;
     const screenY = Math.random() * canvas.height;
-
     const distFromPlayer = Math.sqrt(
       Math.pow(screenX - (player.x - camera.x + player.width / 2), 2) +
         Math.pow(screenY - (player.y - camera.y + player.height / 2), 2),
     );
-
     if (distFromPlayer > 180) {
       ctx.save();
       ctx.globalAlpha = 0.2 + Math.random() * 0.15;
       ctx.fillStyle = "#ff0000";
       ctx.shadowColor = "#ff0000";
       ctx.shadowBlur = 5;
-
-      // Left eye
       ctx.beginPath();
       ctx.ellipse(screenX - 7, screenY, 3.5, 2.5, 0, 0, Math.PI * 2);
       ctx.fill();
-
-      // Right eye
       ctx.beginPath();
       ctx.ellipse(screenX + 7, screenY, 3.5, 2.5, 0, 0, Math.PI * 2);
       ctx.fill();
-
-      ctx.shadowBlur = 0;
       ctx.restore();
     }
   }
 
-  // Shadow figures moving in periphery
   if (Math.random() < 0.004) {
     const side = Math.floor(Math.random() * 4);
     let sx, sy;
@@ -1692,22 +1474,16 @@ function render() {
         sy = canvas.height - 30;
         break;
     }
-
     ctx.save();
     ctx.globalAlpha = 0.06;
     ctx.fillStyle = "#1a0030";
-
-    // Tall thin figure
     ctx.fillRect(sx, sy - 20, 8, 40);
-    // Head
     ctx.beginPath();
     ctx.arc(sx + 4, sy - 24, 6, 0, Math.PI * 2);
     ctx.fill();
-
     ctx.restore();
   }
 
-  // Breathing effect on screen edges when corruption high
   if (player.corruption > 20) {
     const breathe = Math.sin(gameTime * 2) * (player.corruption / 100) * 0.08;
     ctx.fillStyle = `rgba(80, 0, 120, ${breathe > 0 ? breathe : 0})`;
@@ -1726,7 +1502,6 @@ function drawDarkness() {
   dCtx.fillRect(0, 0, darkCanvas.width, darkCanvas.height);
   dCtx.globalCompositeOperation = "destination-out";
 
-  // Player light — in screen space
   const pcx = player.x - camera.x + player.width / 2;
   const pcy = player.y - camera.y + player.height / 2;
   const visionRadius = player.isRunning ? 85 : 105;
@@ -1744,7 +1519,6 @@ function drawDarkness() {
   dCtx.fillStyle = playerGlow;
   dCtx.fillRect(0, 0, darkCanvas.width, darkCanvas.height);
 
-  // Candle lights — convert to screen space
   for (const candle of candles) {
     const cx = candle.x - camera.x;
     const cy = candle.y - camera.y;
@@ -1762,7 +1536,6 @@ function drawDarkness() {
     dCtx.fillRect(0, 0, darkCanvas.width, darkCanvas.height);
   }
 
-  // Exit rift glow
   if (exitRift && exitRift.active) {
     const rx = exitRift.x + 24 - camera.x;
     const ry = exitRift.y + 24 - camera.y;
@@ -1773,7 +1546,6 @@ function drawDarkness() {
     dCtx.fillRect(0, 0, darkCanvas.width, darkCanvas.height);
   }
 
-  // Soul glow
   for (const soul of souls) {
     if (!soul.collected) {
       const sx = soul.x + 12 - camera.x;
@@ -1789,42 +1561,31 @@ function drawDarkness() {
   ctx.drawImage(darkCanvas, 0, 0);
 }
 
-// ── Story System ──
+// ── Scene Management ──
 function showStory(text, callback) {
   waitingForStory = true;
   currentState = GameState.TRANSITION;
-
   const overlay = document.getElementById("story-overlay");
   const storyText = document.getElementById("story-text");
-
   storyText.innerHTML = text;
-
-  // Reset animation
   storyText.style.animation = "none";
-  storyText.offsetHeight; // Force reflow
+  storyText.offsetHeight;
   storyText.style.animation = "storyFadeIn 3s ease forwards";
-
   const prompt = document.getElementById("story-prompt");
   prompt.style.animation = "none";
   prompt.offsetHeight;
   prompt.style.animation = "storyPromptIn 1s ease 3.5s forwards";
-
   overlay.classList.remove("hidden");
   document.getElementById("ui-layer").style.display = "none";
-
   storyCallback = callback;
 }
 
-let storyCallback = null;
-
-// ── Scene Management ──
 function showTransition(levelIdx) {
   sound.playMutationReveal();
   currentState = GameState.TRANSITION;
   const level = LEVELS[levelIdx];
   const overlay = document.getElementById("transition-overlay");
   overlay.classList.remove("hidden");
-
   document.getElementById("transition-level").textContent =
     currentMode === "endless"
       ? "Floor " + endlessFloor
@@ -1854,15 +1615,10 @@ function nextLevel() {
   } else {
     currentLevel++;
     if (currentLevel >= LEVELS.length) {
-      // Show ending story then win
-      showStory(STORY.ending, () => {
-        winGame();
-      });
+      showStory(STORY.ending, () => winGame());
     } else {
-      // Figure out which chapter and level within chapter
       const chapter = Math.floor(currentLevel / 2);
       const levelInChapter = currentLevel % 2;
-
       if (
         STORY.chapters[chapter] &&
         STORY.chapters[chapter].before[levelInChapter]
@@ -1879,27 +1635,17 @@ function nextLevel() {
 
 function gameOver(reason) {
   sound.playDeath();
-
-  // Screen shake
   const wrapper = document.getElementById("game-wrapper");
   wrapper.style.animation = "screenShake 0.4s ease";
   setTimeout(() => {
     wrapper.style.animation = "";
   }, 400);
 
-  // Blood splash overlay
   const bloodOverlay = document.createElement("div");
   bloodOverlay.style.cssText = `
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: radial-gradient(circle at center,
-      rgba(150, 0, 0, 0.8) 0%,
-      rgba(80, 0, 0, 0.4) 40%,
-      rgba(0, 0, 0, 0) 100%);
-    z-index: 140;
-    pointer-events: none;
-    animation: bloodFade 1.5s forwards;
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: radial-gradient(circle at center, rgba(150, 0, 0, 0.8) 0%, rgba(80, 0, 0, 0.4) 40%, rgba(0, 0, 0, 0) 100%);
+    z-index: 140; pointer-events: none; animation: bloodFade 1.5s forwards;
   `;
   wrapper.appendChild(bloodOverlay);
   setTimeout(() => bloodOverlay.remove(), 1500);
@@ -1956,75 +1702,56 @@ function generateEndlessMap(floor) {
   const cols = 26;
   const rows = 20;
   const map = [];
-
-  // Fill with floor
   for (let r = 0; r < rows; r++) {
     let row = "";
     for (let c = 0; c < cols; c++) {
-      if (r === 0 || r === rows - 1 || c === 0 || c === cols - 1) {
-        row += "#";
-      } else {
-        row += ".";
-      }
+      if (r === 0 || r === rows - 1 || c === 0 || c === cols - 1) row += "#";
+      else row += ".";
     }
     map.push(row);
   }
 
-  // Add horizontal wall segments (never full width — always leave gaps)
   const wallRows = 3 + Math.floor(floor / 3);
   for (let i = 0; i < wallRows; i++) {
     const wy = 3 + Math.floor(Math.random() * (rows - 6));
     const startX = 2 + Math.floor(Math.random() * 6);
     const len = 3 + Math.floor(Math.random() * 5);
     const gapPos = startX + Math.floor(Math.random() * len);
-
     for (let j = 0; j < len && startX + j < cols - 2; j++) {
       const cx = startX + j;
-      // Always leave a gap so nothing gets trapped
-      if (cx !== gapPos && cx !== gapPos + 1) {
+      if (cx !== gapPos && cx !== gapPos + 1)
         map[wy] = map[wy].substring(0, cx) + "#" + map[wy].substring(cx + 1);
-      }
     }
   }
 
-  // Add vertical wall segments (with gaps)
   const vWalls = 2 + Math.floor(floor / 4);
   for (let i = 0; i < vWalls; i++) {
     const wx = 3 + Math.floor(Math.random() * (cols - 6));
     const startY = 2 + Math.floor(Math.random() * 6);
     const len = 3 + Math.floor(Math.random() * 4);
     const gapPos = startY + Math.floor(Math.random() * len);
-
     for (let j = 0; j < len && startY + j < rows - 2; j++) {
       const cy = startY + j;
-      if (cy !== gapPos && cy !== gapPos + 1) {
+      if (cy !== gapPos && cy !== gapPos + 1)
         map[cy] = map[cy].substring(0, wx) + "#" + map[cy].substring(wx + 1);
-      }
     }
   }
 
-  // Clear spawn areas (make sure player and phantom aren't trapped)
   for (let r = 1; r <= 3; r++) {
-    for (let c = 1; c <= 3; c++) {
+    for (let c = 1; c <= 3; c++)
       map[r] = map[r].substring(0, c) + "." + map[r].substring(c + 1);
-    }
   }
   for (let r = rows - 4; r <= rows - 2; r++) {
-    for (let c = cols - 4; c <= cols - 2; c++) {
+    for (let c = cols - 4; c <= cols - 2; c++)
       map[r] = map[r].substring(0, c) + "." + map[r].substring(c + 1);
-    }
   }
 
-  // Player
   map[2] = map[2].substring(0, 2) + "@" + map[2].substring(3);
-
-  // Phantom
   map[rows - 3] =
     map[rows - 3].substring(0, cols - 3) +
     "P" +
     map[rows - 3].substring(cols - 2);
 
-  // Souls (never place on walls or spawns)
   const soulCount = 3 + Math.floor(floor / 2);
   let placed = 0;
   let attempts = 0;
@@ -2038,12 +1765,10 @@ function generateEndlessMap(floor) {
     attempts++;
   }
 
-  // Exit
   map[rows - 2] =
     map[rows - 2].substring(0, cols - 2) +
     "E" +
     map[rows - 2].substring(cols - 1);
-
   return map;
 }
 
@@ -2069,7 +1794,7 @@ function startEndlessFloor() {
         : "DRIFT",
     description: `"Floor ${endlessFloor}. It grows stronger."`,
     mutations: mutationsForFloor,
-    soulsNeeded: 3 + Math.floor(endlessFloor / 3),
+    soulsNeeded: 3 + Math.floor(endlessFloor / 2),
     phantomSpeed: 50 + endlessFloor * 2,
     map: map,
   };
@@ -2098,16 +1823,12 @@ function gameLoop(timestamp) {
 
   if (currentState === GameState.PLAYING) {
     gameTime += dt;
-    // Random ambient scary sounds
-    if (Math.random() < 0.003) {
-      sound.playAmbientScare();
-    }
+    if (Math.random() < 0.003) sound.playAmbientScare();
     updatePlayer(dt);
     updatePhantom(dt);
     updateSecondPhantom(dt);
     updateParticles(dt);
     camera.update(dt);
-    sprites.update(dt);
     render();
   }
 
@@ -2133,17 +1854,16 @@ document.querySelectorAll(".chapter-card").forEach((card) => {
     phantom.reset();
     gameTime = 0;
 
-    // Show intro story on Chapter 1, otherwise chapter story
     if (chapter === 0) {
       showStory(STORY.intro, () => {
-        showStory(STORY.chapters[0].before[0], () => {
-          showTransition(currentLevel);
-        });
+        showStory(STORY.chapters[0].before[0], () =>
+          showTransition(currentLevel),
+        );
       });
     } else {
-      showStory(STORY.chapters[chapter].before[0], () => {
-        showTransition(currentLevel);
-      });
+      showStory(STORY.chapters[chapter].before[0], () =>
+        showTransition(currentLevel),
+      );
     }
   });
 });

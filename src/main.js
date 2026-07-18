@@ -39,7 +39,6 @@ import {
   getRandomNightmareMap,
   endNightmare,
 } from "./systems/nightmare-mode.js";
-import { levelState, loadLevel } from "./levels/level-manager.js";
 
 // ── Canvas Setup ──
 const canvas = document.getElementById("gameCanvas");

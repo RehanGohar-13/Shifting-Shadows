@@ -40,25 +40,11 @@
 
         <div id="candles-counter">
           <span>🕯️</span>
-          <span id="candles-text">3</span>
+          <span id="candles-text">0</span>
         </div>
 
         <div id="level-info">
           <span id="level-text">LEVEL 1</span>
-        </div>
-
-        <div id="ability-hints">
-          <span>[E] Place Candle</span>
-          <span>[SHIFT] Run</span>
-          <span>[F] Throw Rock</span>
-        </div>
-      </div>
-
-      <!-- Story Screen -->
-      <div id="story-overlay" class="hidden">
-        <div id="story-content">
-          <div id="story-text"></div>
-          <div id="story-prompt">[ PRESS SPACE ]</div>
         </div>
       </div>
 
@@ -75,6 +61,14 @@
         </div>
       </div>
 
+      <!-- Story Screen -->
+      <div id="story-overlay" class="hidden">
+        <div id="story-content">
+          <div id="story-text"></div>
+          <div id="story-prompt">[ PRESS SPACE ]</div>
+        </div>
+      </div>
+
       <!-- Menu Screen -->
       <div id="menu-overlay">
         <div id="menu-content">
@@ -84,27 +78,6 @@
             <span class="title-bottom">
               A survival horror game where the rules change.
             </span>
-          </div>
-
-          <div class="m-divider"></div>
-
-          <div id="menu-controls">
-            <div class="control-row">
-              <span class="key">WASD</span>
-              <span class="control-desc">Move</span>
-            </div>
-            <div class="control-row">
-              <span class="key">SHIFT</span>
-              <span class="control-desc">Run (makes noise)</span>
-            </div>
-            <div class="control-row">
-              <span class="key">E</span>
-              <span class="control-desc">Place Candle</span>
-            </div>
-            <div class="control-row">
-              <span class="key">F</span>
-              <span class="control-desc">Throw Rock</span>
-            </div>
           </div>
 
           <div class="m-divider"></div>
@@ -125,7 +98,6 @@
         <div id="chapter-content">
           <div id="chapter-header">SELECT CHAPTER</div>
           <div class="m-divider"></div>
-
           <div id="chapter-list">
             <div class="chapter-card" data-chapter="0">
               <div class="chapter-number">I</div>
@@ -137,7 +109,6 @@
                 <div class="chapter-levels">Levels 1 — 2</div>
               </div>
             </div>
-
             <div class="chapter-card" data-chapter="1">
               <div class="chapter-number">II</div>
               <div class="chapter-info">
@@ -148,7 +119,6 @@
                 <div class="chapter-levels">Levels 3 — 4</div>
               </div>
             </div>
-
             <div class="chapter-card" data-chapter="2">
               <div class="chapter-number">III</div>
               <div class="chapter-info">
@@ -159,7 +129,6 @@
                 <div class="chapter-levels">Levels 5 — 6</div>
               </div>
             </div>
-
             <div
               class="chapter-card chapter-nightmare"
               data-chapter="nightmare"
@@ -174,7 +143,6 @@
               </div>
             </div>
           </div>
-
           <div class="m-divider"></div>
           <button id="chapter-back-button">BACK</button>
         </div>

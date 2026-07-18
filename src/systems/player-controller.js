@@ -167,6 +167,24 @@ export function updatePlayer(dt, callbacks = {}) {
     }
   }
 
+  // Candle pickup
+  for (const pickup of levelState.candlePickups) {
+    if (
+      !pickup.collected &&
+      rectsCollide(player, {
+        x: pickup.x - 8,
+        y: pickup.y - 8,
+        width: 16,
+        height: 16,
+      })
+    ) {
+      pickup.collected = true;
+      player.candles++;
+      playerEffects.rockFlashTimer = 0.2;
+      sound.playCandlePlace();
+    }
+  }
+
   // Place candle
   if (keys["e"] && player.candles > 0) {
     keys["e"] = false;

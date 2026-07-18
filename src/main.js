@@ -39,6 +39,7 @@ import {
   getRandomNightmareMap,
   endNightmare,
 } from "./systems/nightmare-mode.js";
+import { levelState, loadLevel } from "./levels/level-manager.js";
 
 // ── Canvas Setup ──
 const canvas = document.getElementById("gameCanvas");
@@ -243,11 +244,9 @@ function returnToMenu() {
   phantom.reset();
   resetStory();
   endNightmare();
-
-  // Reset player
+  resetTutorial();
   player.reset();
 
-  // Hide ALL overlays
   document.getElementById("nightmare-hud").classList.add("hidden");
   document.getElementById("gameover-overlay").classList.add("hidden");
   document.getElementById("win-overlay").classList.add("hidden");
@@ -258,7 +257,6 @@ function returnToMenu() {
   document.getElementById("ui-layer").style.display = "none";
   document.getElementById("menu-overlay").style.display = "flex";
 
-  // Reset win screen text
   document.getElementById("win-title").textContent = "YOU ESCAPED";
   document.getElementById("win-subtitle").textContent =
     "The shadow still learns.";
@@ -289,6 +287,7 @@ function gameLoop(timestamp) {
     if (Math.random() < 0.003 && sound.playAmbientScare) {
       sound.playAmbientScare();
     }
+    updateTutorial();
     updatePlayer(dt, { nextLevel, gameOver });
     updatePhantom(dt);
     updateSecondPhantom(dt, { gameOver });
@@ -480,6 +479,133 @@ function updateNightmareHUD() {
   if (nightmareState.timeLeft < 30) {
     timerEl.style.color = "#ff0000";
     timerEl.style.textShadow = "0 0 20px #ff0000";
+  }
+}
+
+// ── In-Game Tutorial Hints ──
+const tutorialHints = {
+  shown: {
+    movement: false,
+    run: false,
+    candle: false,
+    rock: false,
+    soulPickup: false,
+    delivery: false,
+  },
+};
+
+function showHint(text, duration = 4) {
+  const hint = document.createElement("div");
+  hint.style.cssText = `
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: rgba(200, 216, 255, 0.9);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 14px;
+    letter-spacing: 3px;
+    text-align: center;
+    z-index: 15;
+    pointer-events: none;
+    background: rgba(5, 5, 8, 0.85);
+    padding: 16px 32px;
+    border: 1px solid rgba(107, 0, 255, 0.4);
+    text-shadow: 0 0 8px rgba(200, 216, 255, 0.5);
+    animation: hintFade ${duration}s forwards;
+  `;
+  hint.innerHTML = text;
+  document.getElementById("game-wrapper").appendChild(hint);
+  setTimeout(() => hint.remove(), duration * 1000);
+}
+
+function resetTutorial() {
+  tutorialHints.shown.movement = false;
+  tutorialHints.shown.run = false;
+  tutorialHints.shown.candle = false;
+  tutorialHints.shown.rock = false;
+  tutorialHints.shown.soulPickup = false;
+  tutorialHints.shown.delivery = false;
+}
+
+function updateTutorial() {
+  if (state.currentMode !== "story") return;
+
+  // Level 1: Movement + soul pickup + delivery
+  if (state.currentLevel === 0) {
+    if (
+      !tutorialHints.shown.movement &&
+      state.gameTime > 1 &&
+      state.gameTime < 2
+    ) {
+      tutorialHints.shown.movement = true;
+      showHint("WASD to move", 4);
+    }
+
+    if (
+      !tutorialHints.shown.run &&
+      state.gameTime > 10 &&
+      state.gameTime < 11
+    ) {
+      tutorialHints.shown.run = true;
+      showHint(
+        'SHIFT to run<br><span style="color:#ff5566;font-size:11px">but running makes noise</span>',
+        4,
+      );
+    }
+
+    if (!tutorialHints.shown.soulPickup && !player.carryingSoul) {
+      for (const soul of levelState.souls) {
+        if (!soul.collected) {
+          const dx = soul.x - player.x;
+          const dy = soul.y - player.y;
+          if (Math.sqrt(dx * dx + dy * dy) < 100) {
+            tutorialHints.shown.soulPickup = true;
+            showHint(
+              'Collect the soul<br><span style="color:#aaccff;font-size:11px">carry it to the rift</span>',
+              4,
+            );
+            break;
+          }
+        }
+      }
+    }
+
+    if (!tutorialHints.shown.delivery && player.carryingSoul) {
+      tutorialHints.shown.delivery = true;
+      showHint(
+        'Find the RIFT<br><span style="color:#00ffaa;font-size:11px">deliver the soul</span>',
+        4,
+      );
+    }
+  }
+
+  // Level 2: Candles
+  if (
+    state.currentLevel === 1 &&
+    !tutorialHints.shown.candle &&
+    state.gameTime > 2 &&
+    state.gameTime < 3
+  ) {
+    tutorialHints.shown.candle = true;
+    showHint(
+      'Press E to place a candle<br><span style="color:#ff8800;font-size:11px">light restores sanity</span>',
+      4,
+    );
+  }
+
+  // Level 3: Rocks
+  if (
+    state.currentLevel === 2 &&
+    !tutorialHints.shown.rock &&
+    state.gameTime > 2 &&
+    state.gameTime < 3
+  ) {
+    tutorialHints.shown.rock = true;
+    showHint(
+      'Press F to throw a rock<br><span style="color:#ffaa00;font-size:11px">distract the phantom</span>',
+      4,
+    );
   }
 }
 

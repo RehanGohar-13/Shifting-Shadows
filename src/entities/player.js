@@ -18,8 +18,8 @@ export const player = {
   souls: 0,
   soulsDelivered: 0,
   carryingSoul: false,
-  candles: 3,
-  rocks: 2,
+  candles: 0,
+  rocks: 0,
   soulTrail: [],
   trailTimer: 0,
   moving: false,
@@ -33,8 +33,8 @@ export const player = {
     this.souls = 0;
     this.soulsDelivered = 0;
     this.carryingSoul = false;
-    this.candles = 3;
-    this.rocks = 2;
+    this.candles = 0;
+    this.rocks = 0;
     this.soulTrail = [];
     this.trailTimer = 0;
     this.moving = false;

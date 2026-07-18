@@ -27,6 +27,7 @@ export function render(ctx, canvas, gameTime) {
   drawWalls(ctx);
   drawSouls(ctx, gameTime);
   drawRockPickups(ctx, gameTime);
+  drawCandlePickups(ctx, gameTime);
   drawRift(ctx, gameTime);
   drawCandles(ctx);
   drawRocks(ctx);
@@ -48,7 +49,6 @@ export function render(ctx, canvas, gameTime) {
 
   drawSoulFlash(ctx, canvas);
   drawRockFlash(ctx, canvas);
-  drawCompassArrow(ctx, canvas);
   drawHorrorEffects(ctx, canvas, gameTime);
 }
 
@@ -122,12 +122,20 @@ function drawRockPickups(ctx, gameTime) {
       ctx.beginPath();
       ctx.arc(pickup.x, pickup.y, 6, 0, Math.PI * 2);
       ctx.fill();
-      ctx.beginPath();
-      ctx.arc(pickup.x - 6, pickup.y + 4, 4, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(pickup.x + 5, pickup.y + 3, 5, 0, Math.PI * 2);
-      ctx.fill();
+    }
+  }
+}
+
+function drawCandlePickups(ctx, gameTime) {
+  for (const pickup of levelState.candlePickups) {
+    if (pickup.collected) continue;
+
+    if (sprites.sprites.candle) {
+      ctx.save();
+      ctx.shadowColor = "#ff8800";
+      ctx.shadowBlur = 6;
+      ctx.drawImage(sprites.sprites.candle, pickup.x - 8, pickup.y - 8, 16, 16);
+      ctx.restore();
     }
   }
 }
@@ -136,7 +144,10 @@ function drawRift(ctx, gameTime) {
   const rift = levelState.exitRift;
   if (!rift || !sprites.sprites.rift) return;
 
-  if (rift.active) {
+  const readyToEscape = player.soulsDelivered >= levelState.soulsNeeded;
+
+  if (readyToEscape) {
+    // GREEN GLOW — ready to escape!
     const riftPulse = 1.3 + Math.sin(gameTime * 4) * 0.15;
     const riftSize = TILE_SIZE * riftPulse;
     const riftOffset = (riftSize - TILE_SIZE) / 2;
@@ -152,9 +163,14 @@ function drawRift(ctx, gameTime) {
       riftSize,
     );
     ctx.restore();
+  } else if (rift.active) {
+    ctx.save();
+    ctx.globalAlpha = 0.5;
+    ctx.drawImage(sprites.sprites.rift, rift.x, rift.y, TILE_SIZE, TILE_SIZE);
+    ctx.restore();
   } else {
     ctx.save();
-    ctx.globalAlpha = 0.35;
+    ctx.globalAlpha = 0.25;
     ctx.drawImage(sprites.sprites.rift, rift.x, rift.y, TILE_SIZE, TILE_SIZE);
     ctx.restore();
   }
@@ -290,10 +306,10 @@ function drawPhantom(ctx) {
   ctx.shadowColor = "#ff0000";
   ctx.shadowBlur = 8;
   ctx.beginPath();
-  ctx.arc(pcenterX - 5, pcenterY - 4 + hoverY, eyeSize, 0, Math.PI * 2);
+  ctx.arc(pcenterX - 6, pcenterY - 8 + hoverY, eyeSize, 0, Math.PI * 2);
   ctx.fill();
   ctx.beginPath();
-  ctx.arc(pcenterX + 5, pcenterY - 4 + hoverY, eyeSize, 0, Math.PI * 2);
+  ctx.arc(pcenterX + 6, pcenterY - 8 + hoverY, eyeSize, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
@@ -328,10 +344,10 @@ function drawSecondPhantom(ctx) {
   ctx.shadowColor = "#cc00ff";
   ctx.shadowBlur = 6;
   ctx.beginPath();
-  ctx.arc(spCX - 5, spCY - 4 + hoverY, 2, 0, Math.PI * 2);
+  ctx.arc(spCX - 6, spCY - 8 + hoverY, 2, 0, Math.PI * 2);
   ctx.fill();
   ctx.beginPath();
-  ctx.arc(spCX + 5, spCY - 4 + hoverY, 2, 0, Math.PI * 2);
+  ctx.arc(spCX + 6, spCY - 8 + hoverY, 2, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
@@ -348,33 +364,4 @@ function drawRockFlash(ctx, canvas) {
   playerEffects.rockFlashTimer -= 0.016;
   ctx.fillStyle = `rgba(255, 170, 100, ${playerEffects.rockFlashTimer * 0.5})`;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-}
-
-function drawCompassArrow(ctx, canvas) {
-  const rift = levelState.exitRift;
-  if (!rift || !rift.active) return;
-
-  const dx = rift.x + 24 - (player.x + player.width / 2);
-  const dy = rift.y + 24 - (player.y + player.height / 2);
-  const distToRift = Math.sqrt(dx * dx + dy * dy);
-  if (distToRift < 200) return;
-
-  const angle = Math.atan2(dy, dx);
-  const arrowX = canvas.width / 2 + Math.cos(angle) * 180;
-  const arrowY = canvas.height / 2 + Math.sin(angle) * 180;
-
-  ctx.save();
-  ctx.translate(arrowX, arrowY);
-  ctx.rotate(angle);
-  ctx.fillStyle = "rgba(0, 255, 170, 0.4)";
-  ctx.shadowColor = "#00ffaa";
-  ctx.shadowBlur = 10;
-  ctx.beginPath();
-  ctx.moveTo(15, 0);
-  ctx.lineTo(-10, -8);
-  ctx.lineTo(-6, 0);
-  ctx.lineTo(-10, 8);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
 }

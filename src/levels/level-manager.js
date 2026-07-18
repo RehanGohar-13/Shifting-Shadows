@@ -20,6 +20,7 @@ export const levelState = {
   candles: [],
   rocks: [],
   rockPickups: [],
+  candlePickups: [],
   exitRift: null,
   soulsNeeded: 0,
   currentMapCols: 24,
@@ -32,6 +33,7 @@ export function loadLevel(level) {
   levelState.candles = [];
   levelState.rocks = [];
   levelState.rockPickups = [];
+  levelState.candlePickups = [];
   levelState.exitRift = null;
   levelState.soulsNeeded = level.soulsNeeded;
   clearSecondPhantom();
@@ -88,6 +90,7 @@ export function loadLevel(level) {
   spawnSouls(levelState.soulsNeeded);
   spawnCandles();
   spawnRockPickups();
+  spawnCandlePickups();
 
   player.reset();
   phantom.state = "IDLE";
@@ -230,7 +233,7 @@ function spawnSouls(count) {
 }
 
 function spawnCandles() {
-  const candleCount = 6 + Math.floor(Math.random() * 4);
+  const candleCount = 3 + Math.floor(Math.random() * 3);
   const placedCandles = [];
   const minDistanceBetweenCandles = 200;
 
@@ -332,6 +335,51 @@ function spawnRockPickups() {
         );
         if (distToPlayer > 200) {
           levelState.rockPickups.push({ x, y, collected: false });
+        }
+      }
+      attempts++;
+    }
+  }
+}
+
+function spawnCandlePickups() {
+  const count = 4 + Math.floor(Math.random() * 3);
+  const placed = [];
+  const minDistance = 150;
+
+  for (let i = 0; i < count; i++) {
+    let attempts = 0;
+    let done = false;
+
+    while (attempts < 100 && !done) {
+      const rx =
+        3 + Math.floor(Math.random() * (levelState.currentMapCols - 6));
+      const ry =
+        3 + Math.floor(Math.random() * (levelState.currentMapRows - 6));
+      const x = rx * TILE_SIZE + 24;
+      const y = ry * TILE_SIZE + 24;
+
+      if (!collidesWithWalls(x - 8, y - 8, 16, 16, levelState.walls)) {
+        let tooClose = false;
+        for (const p of placed) {
+          const dx = p.x - x;
+          const dy = p.y - y;
+          if (Math.sqrt(dx * dx + dy * dy) < minDistance) {
+            tooClose = true;
+            break;
+          }
+        }
+
+        const distToPlayer = Math.sqrt(
+          (x - player.x) ** 2 + (y - player.y) ** 2,
+        );
+        if (distToPlayer < 150) tooClose = true;
+
+        if (!tooClose) {
+          const pickup = { x, y, collected: false };
+          levelState.candlePickups.push(pickup);
+          placed.push(pickup);
+          done = true;
         }
       }
       attempts++;

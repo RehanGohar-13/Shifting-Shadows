@@ -410,8 +410,13 @@ class SoundSystem {
   // ── LEVEL COMPLETE ──
   playLevelComplete() {
     if (!this.initialized) return;
-    const t = this.ctx.currentTime;
+    if (this._levelCompletePlaying) return;
+    this._levelCompletePlaying = true;
+    setTimeout(() => {
+      this._levelCompletePlaying = false;
+    }, 1000);
 
+    const t = this.ctx.currentTime;
     const notes = [400, 500, 600, 800];
     notes.forEach((freq, i) => {
       const osc = this.ctx.createOscillator();

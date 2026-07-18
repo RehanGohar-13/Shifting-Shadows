@@ -1,0 +1,350 @@
+// ============================================
+// Renderer — Draw World + Sprites
+// ============================================
+
+import { sprites } from "./sprites.js";
+import { camera } from "./camera.js";
+import { drawDarkness } from "./darkness.js";
+import { drawHorrorEffects } from "./horror-effects.js";
+import { player } from "../entities/player.js";
+import { phantom, getSecondPhantom } from "../entities/phantom.js";
+import { levelState } from "../levels/level-manager.js";
+import { playerEffects } from "./player-controller.js";
+
+const TILE_SIZE = 48;
+
+export function render(ctx, canvas, gameTime) {
+  if (!sprites.loaded) return;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = "#0a0812";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.save();
+  ctx.translate(-camera.x, -camera.y);
+
+  drawFloor(ctx);
+  drawWalls(ctx);
+  drawSouls(ctx, gameTime);
+  drawRift(ctx, gameTime);
+  drawCandles(ctx);
+  drawRocks(ctx);
+  drawPlayer(ctx);
+  drawPhantom(ctx);
+  drawSecondPhantom(ctx);
+
+  ctx.restore();
+
+  drawDarkness(
+    ctx,
+    canvas,
+    levelState.candles,
+    levelState.exitRift,
+    levelState.souls,
+    levelState.rocks,
+  );
+
+  drawSoulFlash(ctx, canvas);
+
+  drawCompassArrow(ctx, canvas);
+
+  drawHorrorEffects(ctx, canvas, gameTime);
+}
+
+function drawFloor(ctx) {
+  if (!sprites.sprites.floor) return;
+
+  for (let row = 0; row < levelState.currentMapRows; row++) {
+    for (let col = 0; col < levelState.currentMapCols; col++) {
+      ctx.drawImage(
+        sprites.sprites.floor,
+        col * TILE_SIZE,
+        row * TILE_SIZE,
+        TILE_SIZE,
+        TILE_SIZE,
+      );
+    }
+  }
+
+  ctx.fillStyle = "rgba(10, 0, 20, 0.75)";
+  ctx.fillRect(
+    0,
+    0,
+    levelState.currentMapCols * TILE_SIZE,
+    levelState.currentMapRows * TILE_SIZE,
+  );
+}
+
+function drawWalls(ctx) {
+  for (const wall of levelState.walls) {
+    if (sprites.sprites.wall) {
+      ctx.drawImage(sprites.sprites.wall, wall.x, wall.y, TILE_SIZE, TILE_SIZE);
+
+      // Very subtle purple tint
+      ctx.fillStyle = "rgba(20, 0, 30, 0.3)";
+      ctx.fillRect(wall.x, wall.y, TILE_SIZE, TILE_SIZE);
+    } else {
+      ctx.fillStyle = "#241332";
+      ctx.fillRect(wall.x, wall.y, TILE_SIZE, TILE_SIZE);
+    }
+  }
+}
+
+function drawSouls(ctx, gameTime) {
+  for (const soul of levelState.souls) {
+    if (soul.collected) continue;
+
+    const bob = Math.sin(gameTime * 3 + soul.x) * 3;
+
+    if (sprites.sprites.soul) {
+      ctx.save();
+      ctx.shadowColor = "#c8d8ff";
+      ctx.shadowBlur = 12;
+      ctx.drawImage(sprites.sprites.soul, soul.x, soul.y + bob, 24, 24);
+      ctx.restore();
+    } else {
+      ctx.fillStyle = "#aaccff";
+      ctx.beginPath();
+      ctx.arc(soul.x + 12, soul.y + 12 + bob, 8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+function drawRift(ctx, gameTime) {
+  const rift = levelState.exitRift;
+  if (!rift || !sprites.sprites.rift) return;
+
+  if (rift.active) {
+    const riftPulse = 1.3 + Math.sin(gameTime * 4) * 0.15;
+    const riftSize = TILE_SIZE * riftPulse;
+    const riftOffset = (riftSize - TILE_SIZE) / 2;
+
+    ctx.save();
+    ctx.shadowColor = "#00ffaa";
+    ctx.shadowBlur = 30;
+    ctx.drawImage(
+      sprites.sprites.rift,
+      rift.x - riftOffset,
+      rift.y - riftOffset,
+      riftSize,
+      riftSize,
+    );
+    ctx.restore();
+  } else {
+    ctx.save();
+    ctx.globalAlpha = 0.35;
+    ctx.drawImage(sprites.sprites.rift, rift.x, rift.y, TILE_SIZE, TILE_SIZE);
+    ctx.restore();
+  }
+}
+
+function drawCandles(ctx) {
+  for (const candle of levelState.candles) {
+    if (sprites.sprites.candle) {
+      ctx.drawImage(sprites.sprites.candle, candle.x - 8, candle.y - 4, 16, 16);
+    }
+
+    ctx.strokeStyle = "rgba(255, 170, 0, 0.05)";
+    ctx.beginPath();
+    ctx.arc(candle.x, candle.y, candle.radius, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+}
+
+function drawRocks(ctx) {
+  for (const rock of levelState.rocks) {
+    if (sprites.sprites.rock) {
+      // Bigger rocks with glow
+      ctx.save();
+      ctx.shadowColor = "#ffaa00";
+      ctx.shadowBlur = 8;
+      ctx.drawImage(sprites.sprites.rock, rock.x - 12, rock.y - 12, 24, 24);
+      ctx.restore();
+    }
+
+    if (rock.timer > 0) {
+      const wave = (3 - rock.timer) / 3;
+
+      // Bright noise wave
+      ctx.strokeStyle = `rgba(255, 200, 50, ${0.6 - wave * 0.6})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(rock.x, rock.y, wave * rock.noiseRadius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Inner wave
+      ctx.strokeStyle = `rgba(255, 100, 50, ${0.4 - wave * 0.4})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(rock.x, rock.y, wave * rock.noiseRadius * 0.6, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+}
+
+function drawPlayer(ctx) {
+  if (sprites.sprites.player) {
+    ctx.drawImage(
+      sprites.sprites.player,
+      player.x,
+      player.y,
+      player.width,
+      player.height,
+    );
+  } else {
+    ctx.fillStyle = "#c8d8ff";
+    ctx.fillRect(player.x, player.y, player.width, player.height);
+  }
+
+  if (player.isRunning) {
+    ctx.strokeStyle = "rgba(255, 100, 100, 0.3)";
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.arc(
+      player.x + player.width / 2,
+      player.y + player.height / 2,
+      30,
+      0,
+      Math.PI * 2,
+    );
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+function drawPhantom(ctx) {
+  const pcenterX = phantom.x + phantom.width / 2;
+  const pcenterY = phantom.y + phantom.height / 2;
+
+  const phantomSprite = sprites.sprites.phantom;
+  const phantomAlpha = 0.7 + Math.sin(phantom.pulseTimer * 2) * 0.2;
+
+  if (phantomSprite) {
+    ctx.save();
+    ctx.globalAlpha = phantomAlpha;
+    ctx.shadowColor = phantom.state === "CHASE" ? "#ff0000" : "#8800ff";
+    ctx.shadowBlur = phantom.state === "CHASE" ? 25 : 15;
+    ctx.drawImage(
+      phantomSprite,
+      phantom.x - 4,
+      phantom.y - 4,
+      TILE_SIZE,
+      TILE_SIZE,
+    );
+
+    if (phantom.state === "CHASE" || phantom.state === "HUNT") {
+      ctx.globalCompositeOperation = "source-atop";
+      ctx.fillStyle = "rgba(255, 0, 0, 0.35)";
+      ctx.fillRect(phantom.x - 4, phantom.y - 4, TILE_SIZE, TILE_SIZE);
+      ctx.globalCompositeOperation = "source-over";
+    }
+
+    ctx.restore();
+  }
+
+  // Eyes — tuned for Kenney ghost
+  const eyeGlow = 0.7 + Math.sin(phantom.pulseTimer * 4) * 0.3;
+  const eyeSize = phantom.state === "CHASE" ? 2.5 : 2;
+
+  ctx.save();
+  ctx.fillStyle = `rgba(255, 0, 0, ${eyeGlow})`;
+  ctx.shadowColor = "#ff0000";
+  ctx.shadowBlur = 8;
+
+  ctx.beginPath();
+  ctx.arc(pcenterX - 5, pcenterY - 4, eyeSize, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(pcenterX + 5, pcenterY - 4, eyeSize, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawSecondPhantom(ctx) {
+  const sp = getSecondPhantom();
+  if (!sp) return;
+
+  const spCX = sp.x + sp.width / 2;
+  const spCY = sp.y + sp.height / 2;
+
+  if (sprites.sprites.phantom2) {
+    const spAlpha = 0.6 + Math.sin(sp.pulseTimer * 2.5) * 0.15;
+
+    ctx.save();
+    ctx.globalAlpha = spAlpha;
+    ctx.shadowColor = "#cc00ff";
+    ctx.shadowBlur = 20;
+    ctx.drawImage(
+      sprites.sprites.phantom2,
+      sp.x - 4,
+      sp.y - 4,
+      TILE_SIZE,
+      TILE_SIZE,
+    );
+    ctx.restore();
+  }
+
+  const spEyeGlow = 0.6 + Math.sin(sp.pulseTimer * 4) * 0.3;
+
+  ctx.save();
+  ctx.fillStyle = `rgba(200, 0, 255, ${spEyeGlow})`;
+  ctx.shadowColor = "#cc00ff";
+  ctx.shadowBlur = 6;
+
+  ctx.beginPath();
+  ctx.arc(spCX - 5, spCY - 4, 2, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(spCX + 5, spCY - 4, 2, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawSoulFlash(ctx, canvas) {
+  if (playerEffects.soulFlashTimer <= 0) return;
+
+  playerEffects.soulFlashTimer -= 0.016;
+
+  ctx.fillStyle = `rgba(200, 216, 255, ${playerEffects.soulFlashTimer})`;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+function drawCompassArrow(ctx, canvas) {
+  const rift = levelState.exitRift;
+
+  if (!rift || !rift.active) return;
+
+  const dx = rift.x + 24 - (player.x + player.width / 2);
+  const dy = rift.y + 24 - (player.y + player.height / 2);
+  const distToRift = Math.sqrt(dx * dx + dy * dy);
+
+  if (distToRift < 200) return;
+
+  const angle = Math.atan2(dy, dx);
+
+  const arrowX = canvas.width / 2 + Math.cos(angle) * 180;
+  const arrowY = canvas.height / 2 + Math.sin(angle) * 180;
+
+  ctx.save();
+  ctx.translate(arrowX, arrowY);
+  ctx.rotate(angle);
+  ctx.fillStyle = "rgba(0, 255, 170, 0.4)";
+  ctx.shadowColor = "#00ffaa";
+  ctx.shadowBlur = 10;
+
+  ctx.beginPath();
+  ctx.moveTo(15, 0);
+  ctx.lineTo(-10, -8);
+  ctx.lineTo(-6, 0);
+  ctx.lineTo(-10, 8);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.restore();
+}

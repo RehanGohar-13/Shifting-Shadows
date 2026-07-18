@@ -50,20 +50,22 @@ export const phantomAI = {
   chaseSpeed: 1.5,
   accelerationTimer: 0,
   lastPatrol: null,
-
-  // NEW: Better AI properties
+  campPreventionTimer: 0,
   giveUpTimer: 0,
   ambushMode: false,
-  campPreventionTimer: 0,
   lastPlayerHeard: 0,
 };
 
-export let secondPhantom = null;
+export const secondPhantomRef = { current: null };
 
 export function setSecondPhantom(sp) {
-  secondPhantom = sp;
+  secondPhantomRef.current = sp;
 }
 
 export function clearSecondPhantom() {
-  secondPhantom = null;
+  secondPhantomRef.current = null;
+}
+
+export function getSecondPhantom() {
+  return secondPhantomRef.current;
 }

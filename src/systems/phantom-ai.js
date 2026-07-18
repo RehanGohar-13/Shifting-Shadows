@@ -1,5 +1,5 @@
 // ============================================
-// Phantom AI — SMART + DEADLY
+// Phantom AI — Smart + LOS Aware
 // ============================================
 
 import { player } from "../entities/player.js";
@@ -13,7 +13,6 @@ import {
 } from "../utils/helpers.js";
 import { sound } from "./sound-system.js";
 
-// Player movement history for prediction
 const playerHistory = [];
 const HISTORY_SIZE = 30;
 let historyTimer = 0;
@@ -22,7 +21,6 @@ export function updatePhantom(dt) {
   phantom.pulseTimer += dt;
   phantomAI.accelerationTimer += dt;
 
-  // Track player movement history
   historyTimer += dt;
   if (historyTimer > 0.1) {
     playerHistory.push({ x: player.x, y: player.y, time: Date.now() });
@@ -58,14 +56,11 @@ export function updatePhantom(dt) {
       break;
 
     case "CHASE": {
-      // Aggressive predictive chase
       const chaseSpeed = Math.min(
-        2.6,
-        1.7 + phantomAI.accelerationTimer * 0.15,
+        2.4,
+        1.6 + phantomAI.accelerationTimer * 0.12,
       );
-
-      // Predict where player will be
-      const predictedTarget = predictPlayerPosition(0.8);
+      const predictedTarget = predictPlayerPosition(0.6);
       moveToward(predictedTarget, dt, chaseSpeed);
 
       phantomAI.lastKnownPlayer = { x: player.x, y: player.y };
@@ -73,10 +68,9 @@ export function updatePhantom(dt) {
 
       if (!canDetectPlayer()) {
         phantomAI.giveUpTimer += dt;
-        // Give up chase slowly, don't be dumb
-        if (phantomAI.giveUpTimer > 2) {
+        if (phantomAI.giveUpTimer > 2.5) {
           phantom.state = "LOST";
-          phantomAI.lostTimer = 6;
+          phantomAI.lostTimer = 5;
           phantomAI.accelerationTimer = 0;
           phantomAI.giveUpTimer = 0;
         }
@@ -85,32 +79,22 @@ export function updatePhantom(dt) {
     }
 
     case "LOST":
-      // Actively search last known area
       if (phantomAI.lastKnownPlayer) {
         moveToward(phantomAI.lastKnownPlayer, dt, 1.0);
       }
       checkPhantomSenses();
 
-      // Ambush behavior — sometimes wait silently
-      if (Math.random() < 0.02 && !phantomAI.ambushMode) {
-        phantomAI.ambushMode = true;
-        phantom.speed *= 0.3;
-      }
-
       phantomAI.lostTimer -= dt;
       if (phantomAI.lostTimer <= 0) {
-        phantomAI.alertLevel = 45;
+        phantomAI.alertLevel = 40;
         phantom.state = "IDLE";
-        phantomAI.ambushMode = false;
       }
       break;
   }
 }
 
 function predictPlayerPosition(secondsAhead) {
-  if (playerHistory.length < 5) {
-    return { x: player.x, y: player.y };
-  }
+  if (playerHistory.length < 5) return { x: player.x, y: player.y };
 
   const recent = playerHistory[playerHistory.length - 1];
   const older = playerHistory[playerHistory.length - 5];
@@ -135,12 +119,9 @@ function preventRiftCamping(dt) {
 
   if (distToRift < 200) {
     phantomAI.campPreventionTimer += dt;
-
-    // Faster prevention when close to rift
     const threshold = distToRift < 100 ? 1.5 : 3;
 
     if (phantomAI.campPreventionTimer > threshold) {
-      // Move away AND alert to player position
       const awayX = phantom.x + (phantom.x - rift.x) * 1.0;
       const awayY = phantom.y + (phantom.y - rift.y) * 1.0;
 
@@ -193,7 +174,6 @@ function moveToward(target, dt, speedMult) {
     phantom.y += moveY;
     return;
   }
-
   if (canMoveX) {
     phantom.x += moveX;
     return;
@@ -203,8 +183,6 @@ function moveToward(target, dt, speedMult) {
     return;
   }
 
-  // BOTH BLOCKED — try to find alternate path
-  // Try 8 different angles to find one that works
   const baseAngle = Math.atan2(dy, dx);
   const testAngles = [
     baseAngle + Math.PI / 4,
@@ -233,74 +211,41 @@ function moveToward(target, dt, speedMult) {
       return;
     }
   }
-
-  // Completely stuck — pick truly random direction
-  const randomAngle = Math.random() * Math.PI * 2;
-  const escapeX = Math.cos(randomAngle) * phantom.speed * speedMult * dt;
-  const escapeY = Math.sin(randomAngle) * phantom.speed * speedMult * dt;
-
-  if (
-    !collidesWithWalls(
-      phantom.x + escapeX,
-      phantom.y + escapeY,
-      phantom.width,
-      phantom.height,
-      levelState.walls,
-    )
-  ) {
-    phantom.x += escapeX;
-    phantom.y += escapeY;
-  }
 }
 
 function patrolWander(dt) {
   phantom.wanderTimer -= dt;
 
   if (!phantomAI.lastPatrol || phantom.wanderTimer <= 0) {
-    // Sometimes patrol toward player's general area (stalking)
-    const stalkChance = Math.random();
+    let found = false;
+    for (let attempt = 0; attempt < 25; attempt++) {
+      const testX = phantom.x + (Math.random() - 0.5) * 500;
+      const testY = phantom.y + (Math.random() - 0.5) * 500;
 
-    if (stalkChance < 0.35) {
-      // Head toward player's general area but not directly
-      const offsetX = (Math.random() - 0.5) * 300;
-      const offsetY = (Math.random() - 0.5) * 300;
-      phantomAI.lastPatrol = {
-        x: player.x + offsetX,
-        y: player.y + offsetY,
-      };
-    } else {
-      // Random wander
-      let found = false;
-      for (let attempt = 0; attempt < 25; attempt++) {
-        const testX = phantom.x + (Math.random() - 0.5) * 500;
-        const testY = phantom.y + (Math.random() - 0.5) * 500;
-
-        if (
-          !collidesWithWalls(
-            testX,
-            testY,
-            phantom.width,
-            phantom.height,
-            levelState.walls,
-          )
-        ) {
-          phantomAI.lastPatrol = { x: testX, y: testY };
-          found = true;
-          break;
-        }
-      }
-      if (!found) {
-        phantomAI.lastPatrol = {
-          x: phantom.x + (Math.random() - 0.5) * 120,
-          y: phantom.y + (Math.random() - 0.5) * 120,
-        };
+      if (
+        !collidesWithWalls(
+          testX,
+          testY,
+          phantom.width,
+          phantom.height,
+          levelState.walls,
+        )
+      ) {
+        phantomAI.lastPatrol = { x: testX, y: testY };
+        found = true;
+        break;
       }
     }
-
+    if (!found) {
+      phantomAI.lastPatrol = {
+        x: phantom.x + (Math.random() - 0.5) * 120,
+        y: phantom.y + (Math.random() - 0.5) * 120,
+      };
+    }
     phantom.wanderTimer = 2 + Math.random() * 3;
   }
 
-  moveToward(phantomAI.lastPatrol, dt, 0.65);
+  moveToward(phantomAI.lastPatrol, dt, 0.6);
 }
 
 function buildHuntGrid() {
@@ -321,7 +266,6 @@ function buildHuntGrid() {
     { x: cx + spread, y: cy - spread },
     { x: cx - spread, y: cy + spread },
   ];
-
   phantomAI.huntIndex = 0;
 }
 
@@ -332,11 +276,10 @@ function huntPlayer(dt) {
   }
 
   const target = phantomAI.huntGrid[phantomAI.huntIndex];
-  moveToward(target, dt, 1.25);
+  moveToward(target, dt, 1.2);
 
   if (distanceBetween(phantom, target) < 40) {
     phantomAI.huntIndex++;
-
     if (phantomAI.huntIndex >= phantomAI.huntGrid.length) {
       phantom.state = "LOST";
       phantomAI.lostTimer = 4;
@@ -344,42 +287,37 @@ function huntPlayer(dt) {
   }
 }
 
+// ═══════════════════════════════════════
+// DETECTION — REQUIRES LINE OF SIGHT
+// ═══════════════════════════════════════
 function canDetectPlayer() {
   const dist = distanceBetween(phantom, player);
+  const los = hasLineOfSight(phantom, player, levelState.walls);
 
-  // Very close = always detected
-  if (dist < 90) return true;
+  // Physical proximity — always
+  if (dist < 60) return true;
 
-  // Hearing running
-  if (phantom.canSense && player.isRunning && dist < 260) return true;
+  // Hearing running (needs LOS OR very close)
+  if (phantom.canSense && player.isRunning) {
+    if (dist < 100) return true; // very close = always hears
+    if (los && dist < 280) return true; // needs LOS
+  }
 
-  // Even walking makes some noise
-  if (phantom.canSense && player.moving && dist < 100) return true;
-
-  // Sight in light
-  if (
-    phantom.canManifest &&
-    player.inLight &&
-    dist < 320 &&
-    hasLineOfSight(phantom, player, levelState.walls)
-  ) {
+  // Sight (requires LOS + light)
+  if (phantom.canManifest && player.inLight && los && dist < 320) {
     return true;
   }
 
-  // Trail following
-  if (
-    phantom.canTrace &&
-    player.soulTrail.length > 3 &&
-    distanceBetween(phantom, player.soulTrail[0]) < 160
-  ) {
-    return true;
+  // Trace (follows trail, doesn't need LOS)
+  if (phantom.canTrace && player.soulTrail.length > 3) {
+    if (distanceBetween(phantom, player.soulTrail[0]) < 160) return true;
   }
 
   return false;
 }
 
 function checkPhantomSenses() {
-  // Rocks distract phantom
+  // Rocks (sound) - always detected
   for (const rock of levelState.rocks) {
     if (rock.timer > 0 && distanceBetween(phantom, rock) < rock.noiseRadius) {
       phantomAI.lastKnownPlayer = { x: rock.x, y: rock.y };
@@ -391,48 +329,59 @@ function checkPhantomSenses() {
   }
 
   const dist = distanceBetween(phantom, player);
+  const los = hasLineOfSight(phantom, player, levelState.walls);
 
-  // Very close = INSTANT chase
-  if (dist < 130) {
+  // Physical proximity — instant chase
+  if (dist < 70) {
     phantom.state = "CHASE";
     phantomAI.lastKnownPlayer = { x: player.x, y: player.y };
     phantomAI.accelerationTimer = 0;
     return;
   }
 
-  // Hearing (running)
-  if (phantom.canSense && player.isRunning && dist < 260) {
-    phantom.state = "CHASE";
-    phantomAI.lastKnownPlayer = { x: player.x, y: player.y };
-    phantomAI.alertLevel = 100;
-    phantomAI.accelerationTimer = 0;
-    return;
+  // Hearing (running) — needs LOS OR close
+  if (phantom.canSense && player.isRunning) {
+    if (dist < 100) {
+      phantom.state = "CHASE";
+      phantomAI.lastKnownPlayer = { x: player.x, y: player.y };
+      phantomAI.alertLevel = 100;
+      phantomAI.accelerationTimer = 0;
+      return;
+    }
+    if (los && dist < 280) {
+      phantom.state = "CHASE";
+      phantomAI.lastKnownPlayer = { x: player.x, y: player.y };
+      phantomAI.alertLevel = 100;
+      phantomAI.accelerationTimer = 0;
+      return;
+    }
   }
 
-  // Hearing (walking, close)
-  if (phantom.canSense && player.moving && dist < 130) {
+  // Hearing walking (close, needs LOS)
+  if (
+    phantom.canSense &&
+    player.moving &&
+    !player.isRunning &&
+    los &&
+    dist < 140
+  ) {
     phantomAI.lastKnownPlayer = { x: player.x, y: player.y };
     phantom.state = "ALERTED";
     phantomAI.alertLevel += 40;
   }
 
-  // Sight
-  if (
-    phantom.canManifest &&
-    player.inLight &&
-    dist < 320 &&
-    hasLineOfSight(phantom, player, levelState.walls)
-  ) {
+  // Sight — REQUIRES LOS
+  if (phantom.canManifest && player.inLight && los && dist < 320) {
     phantom.state = "CHASE";
     phantomAI.lastKnownPlayer = { x: player.x, y: player.y };
     phantomAI.accelerationTimer = 0;
     return;
   }
 
-  // Trace with better range
+  // Trace — follows trail
   if (phantom.canTrace && player.soulTrail.length > 3) {
     const trailPoint = player.soulTrail[0];
-    if (distanceBetween(phantom, trailPoint) < 230) {
+    if (distanceBetween(phantom, trailPoint) < 220) {
       phantomAI.lastKnownPlayer = { x: trailPoint.x, y: trailPoint.y };
       phantom.target = trailPoint;
       phantom.state = "ALERTED";
@@ -444,7 +393,6 @@ function checkPhantomSenses() {
   }
 }
 
-// ── Second Phantom ──
 export function updateSecondPhantom(dt, callbacks = {}) {
   const secondPhantom = getSecondPhantom();
   const { gameOver } = callbacks;
@@ -455,38 +403,22 @@ export function updateSecondPhantom(dt, callbacks = {}) {
   secondPhantom.wanderTimer -= dt;
 
   const dist = distanceBetween(secondPhantom, player);
+  const los = hasLineOfSight(secondPhantom, player, levelState.walls);
 
-  if (dist < 280) {
-    // Aggressive chase with prediction
-    const target = predictPlayerPosition(0.5);
-    moveSecondPhantomToward(secondPhantom, target, dt, 1.35);
+  // Only chase when close OR has LOS
+  if (dist < 100 || (los && dist < 280)) {
+    const target = predictPlayerPosition(0.4);
+    moveSecondPhantomToward(secondPhantom, target, dt, 1.3);
     secondPhantom.state = "CHASE";
   } else {
-    // Actively hunt — go toward player's general area
     if (!secondPhantom.wanderTarget || secondPhantom.wanderTimer <= 0) {
-      const hunt = Math.random() > 0.4;
-
-      if (hunt) {
-        secondPhantom.wanderTarget = {
-          x: player.x + (Math.random() - 0.5) * 400,
-          y: player.y + (Math.random() - 0.5) * 400,
-        };
-      } else {
-        secondPhantom.wanderTarget = {
-          x: secondPhantom.x + (Math.random() - 0.5) * 400,
-          y: secondPhantom.y + (Math.random() - 0.5) * 400,
-        };
-      }
-
+      secondPhantom.wanderTarget = {
+        x: secondPhantom.x + (Math.random() - 0.5) * 400,
+        y: secondPhantom.y + (Math.random() - 0.5) * 400,
+      };
       secondPhantom.wanderTimer = 2 + Math.random() * 2;
     }
-
-    moveSecondPhantomToward(
-      secondPhantom,
-      secondPhantom.wanderTarget,
-      dt,
-      0.75,
-    );
+    moveSecondPhantomToward(secondPhantom, secondPhantom.wanderTarget, dt, 0.7);
     secondPhantom.state = "IDLE";
   }
 
@@ -500,7 +432,6 @@ function moveSecondPhantomToward(sp, target, dt, speedMult) {
   const dx = target.x - sp.x;
   const dy = target.y - sp.y;
   const dist = Math.sqrt(dx * dx + dy * dy);
-
   if (dist <= 4) return;
 
   const moveX = (dx / dist) * sp.speed * speedMult * dt;

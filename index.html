@@ -12,6 +12,12 @@
 
       <!-- UI Layer -->
       <div id="ui-layer">
+        <!-- Nightmare HUD -->
+        <div id="nightmare-hud" class="hidden">
+          <div id="nightmare-timer">5:00</div>
+          <div id="nightmare-morph">MAP MORPHS IN 30s</div>
+        </div>
+
         <div id="meters">
           <div class="meter-container">
             <span class="meter-label">SANITY</span>
@@ -119,6 +125,7 @@
         <div id="chapter-content">
           <div id="chapter-header">SELECT CHAPTER</div>
           <div class="m-divider"></div>
+
           <div id="chapter-list">
             <div class="chapter-card" data-chapter="0">
               <div class="chapter-number">I</div>
@@ -130,6 +137,7 @@
                 <div class="chapter-levels">Levels 1 — 2</div>
               </div>
             </div>
+
             <div class="chapter-card" data-chapter="1">
               <div class="chapter-number">II</div>
               <div class="chapter-info">
@@ -140,6 +148,7 @@
                 <div class="chapter-levels">Levels 3 — 4</div>
               </div>
             </div>
+
             <div class="chapter-card" data-chapter="2">
               <div class="chapter-number">III</div>
               <div class="chapter-info">
@@ -150,7 +159,22 @@
                 <div class="chapter-levels">Levels 5 — 6</div>
               </div>
             </div>
+
+            <div
+              class="chapter-card chapter-nightmare"
+              data-chapter="nightmare"
+            >
+              <div class="chapter-number">?</div>
+              <div class="chapter-info">
+                <div class="chapter-name">THE NIGHTMARE</div>
+                <div class="chapter-desc">
+                  Everything changes. Nothing lasts. 5 minutes.
+                </div>
+                <div class="chapter-levels">Secret</div>
+              </div>
+            </div>
           </div>
+
           <div class="m-divider"></div>
           <button id="chapter-back-button">BACK</button>
         </div>

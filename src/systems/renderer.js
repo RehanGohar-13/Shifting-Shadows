@@ -1,5 +1,5 @@
 // ============================================
-// Renderer — Draw World + Sprites
+// Renderer
 // ============================================
 
 import { sprites } from "./sprites.js";
@@ -17,7 +17,6 @@ export function render(ctx, canvas, gameTime) {
   if (!sprites.loaded) return;
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-
   ctx.fillStyle = "#0a0812";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -27,6 +26,7 @@ export function render(ctx, canvas, gameTime) {
   drawFloor(ctx);
   drawWalls(ctx);
   drawSouls(ctx, gameTime);
+  drawRockPickups(ctx, gameTime);
   drawRift(ctx, gameTime);
   drawCandles(ctx);
   drawRocks(ctx);
@@ -43,12 +43,12 @@ export function render(ctx, canvas, gameTime) {
     levelState.exitRift,
     levelState.souls,
     levelState.rocks,
+    levelState.rockPickups,
   );
 
   drawSoulFlash(ctx, canvas);
-
+  drawRockFlash(ctx, canvas);
   drawCompassArrow(ctx, canvas);
-
   drawHorrorEffects(ctx, canvas, gameTime);
 }
 
@@ -80,8 +80,6 @@ function drawWalls(ctx) {
   for (const wall of levelState.walls) {
     if (sprites.sprites.wall) {
       ctx.drawImage(sprites.sprites.wall, wall.x, wall.y, TILE_SIZE, TILE_SIZE);
-
-      // Very subtle purple tint
       ctx.fillStyle = "rgba(20, 0, 30, 0.3)";
       ctx.fillRect(wall.x, wall.y, TILE_SIZE, TILE_SIZE);
     } else {
@@ -94,7 +92,6 @@ function drawWalls(ctx) {
 function drawSouls(ctx, gameTime) {
   for (const soul of levelState.souls) {
     if (soul.collected) continue;
-
     const bob = Math.sin(gameTime * 3 + soul.x) * 3;
 
     if (sprites.sprites.soul) {
@@ -107,6 +104,29 @@ function drawSouls(ctx, gameTime) {
       ctx.fillStyle = "#aaccff";
       ctx.beginPath();
       ctx.arc(soul.x + 12, soul.y + 12 + bob, 8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+function drawRockPickups(ctx, gameTime) {
+  for (const pickup of levelState.rockPickups) {
+    if (pickup.collected) continue;
+
+    if (sprites.sprites.rock) {
+      ctx.drawImage(sprites.sprites.rock, pickup.x - 8, pickup.y - 4, 16, 16);
+      ctx.drawImage(sprites.sprites.rock, pickup.x - 12, pickup.y + 4, 10, 10);
+      ctx.drawImage(sprites.sprites.rock, pickup.x + 4, pickup.y + 2, 12, 12);
+    } else {
+      ctx.fillStyle = "#775533";
+      ctx.beginPath();
+      ctx.arc(pickup.x, pickup.y, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(pickup.x - 6, pickup.y + 4, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(pickup.x + 5, pickup.y + 3, 5, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -145,37 +165,31 @@ function drawCandles(ctx) {
     if (sprites.sprites.candle) {
       ctx.drawImage(sprites.sprites.candle, candle.x - 8, candle.y - 4, 16, 16);
     }
-
-    ctx.strokeStyle = "rgba(255, 170, 0, 0.05)";
-    ctx.beginPath();
-    ctx.arc(candle.x, candle.y, candle.radius, 0, Math.PI * 2);
-    ctx.stroke();
   }
 }
 
 function drawRocks(ctx) {
   for (const rock of levelState.rocks) {
-    if (sprites.sprites.rock) {
-      // Bigger rocks with glow
+    const rockAlpha = Math.min(1, rock.timer / 1);
+
+    if (sprites.sprites.rock && rockAlpha > 0.1) {
       ctx.save();
-      ctx.shadowColor = "#ffaa00";
-      ctx.shadowBlur = 8;
-      ctx.drawImage(sprites.sprites.rock, rock.x - 12, rock.y - 12, 24, 24);
+      ctx.globalAlpha = rockAlpha;
+      ctx.drawImage(sprites.sprites.rock, rock.x - 10, rock.y - 10, 20, 20);
       ctx.restore();
     }
 
     if (rock.timer > 0) {
-      const wave = (3 - rock.timer) / 3;
+      const wave = (2 - rock.timer) / 2;
+      const waveAlpha = 0.7 - wave * 0.7;
 
-      // Bright noise wave
-      ctx.strokeStyle = `rgba(255, 200, 50, ${0.6 - wave * 0.6})`;
+      ctx.strokeStyle = `rgba(255, 200, 50, ${waveAlpha})`;
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(rock.x, rock.y, wave * rock.noiseRadius, 0, Math.PI * 2);
       ctx.stroke();
 
-      // Inner wave
-      ctx.strokeStyle = `rgba(255, 100, 50, ${0.4 - wave * 0.4})`;
+      ctx.strokeStyle = `rgba(255, 100, 50, ${waveAlpha * 0.6})`;
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.arc(rock.x, rock.y, wave * rock.noiseRadius * 0.6, 0, Math.PI * 2);
@@ -198,6 +212,22 @@ function drawPlayer(ctx) {
     ctx.fillRect(player.x, player.y, player.width, player.height);
   }
 
+  // Draw carried soul above player
+  if (player.carryingSoul && sprites.sprites.soul) {
+    const bob = Math.sin(Date.now() / 200) * 3;
+    ctx.save();
+    ctx.shadowColor = "#c8d8ff";
+    ctx.shadowBlur = 15;
+    ctx.drawImage(
+      sprites.sprites.soul,
+      player.x + 5,
+      player.y - 20 + bob,
+      20,
+      20,
+    );
+    ctx.restore();
+  }
+
   if (player.isRunning) {
     ctx.strokeStyle = "rgba(255, 100, 100, 0.3)";
     ctx.setLineDash([4, 4]);
@@ -217,7 +247,6 @@ function drawPlayer(ctx) {
 function drawPhantom(ctx) {
   const pcenterX = phantom.x + phantom.width / 2;
   const pcenterY = phantom.y + phantom.height / 2;
-
   const phantomSprite = sprites.sprites.phantom;
   const phantomAlpha = 0.7 + Math.sin(phantom.pulseTimer * 2) * 0.2;
 
@@ -233,34 +262,21 @@ function drawPhantom(ctx) {
       TILE_SIZE,
       TILE_SIZE,
     );
-
-    if (phantom.state === "CHASE" || phantom.state === "HUNT") {
-      ctx.globalCompositeOperation = "source-atop";
-      ctx.fillStyle = "rgba(255, 0, 0, 0.35)";
-      ctx.fillRect(phantom.x - 4, phantom.y - 4, TILE_SIZE, TILE_SIZE);
-      ctx.globalCompositeOperation = "source-over";
-    }
-
     ctx.restore();
   }
 
-  // Eyes — tuned for Kenney ghost
   const eyeGlow = 0.7 + Math.sin(phantom.pulseTimer * 4) * 0.3;
   const eyeSize = phantom.state === "CHASE" ? 2.5 : 2;
-
   ctx.save();
   ctx.fillStyle = `rgba(255, 0, 0, ${eyeGlow})`;
   ctx.shadowColor = "#ff0000";
   ctx.shadowBlur = 8;
-
   ctx.beginPath();
   ctx.arc(pcenterX - 5, pcenterY - 4, eyeSize, 0, Math.PI * 2);
   ctx.fill();
-
   ctx.beginPath();
   ctx.arc(pcenterX + 5, pcenterY - 4, eyeSize, 0, Math.PI * 2);
   ctx.fill();
-
   ctx.restore();
 }
 
@@ -273,7 +289,6 @@ function drawSecondPhantom(ctx) {
 
   if (sprites.sprites.phantom2) {
     const spAlpha = 0.6 + Math.sin(sp.pulseTimer * 2.5) * 0.15;
-
     ctx.save();
     ctx.globalAlpha = spAlpha;
     ctx.shadowColor = "#cc00ff";
@@ -289,45 +304,43 @@ function drawSecondPhantom(ctx) {
   }
 
   const spEyeGlow = 0.6 + Math.sin(sp.pulseTimer * 4) * 0.3;
-
   ctx.save();
   ctx.fillStyle = `rgba(200, 0, 255, ${spEyeGlow})`;
   ctx.shadowColor = "#cc00ff";
   ctx.shadowBlur = 6;
-
   ctx.beginPath();
   ctx.arc(spCX - 5, spCY - 4, 2, 0, Math.PI * 2);
   ctx.fill();
-
   ctx.beginPath();
   ctx.arc(spCX + 5, spCY - 4, 2, 0, Math.PI * 2);
   ctx.fill();
-
   ctx.restore();
 }
 
 function drawSoulFlash(ctx, canvas) {
   if (playerEffects.soulFlashTimer <= 0) return;
-
   playerEffects.soulFlashTimer -= 0.016;
-
   ctx.fillStyle = `rgba(200, 216, 255, ${playerEffects.soulFlashTimer})`;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+function drawRockFlash(ctx, canvas) {
+  if (playerEffects.rockFlashTimer <= 0) return;
+  playerEffects.rockFlashTimer -= 0.016;
+  ctx.fillStyle = `rgba(255, 170, 100, ${playerEffects.rockFlashTimer * 0.5})`;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
 
 function drawCompassArrow(ctx, canvas) {
   const rift = levelState.exitRift;
-
   if (!rift || !rift.active) return;
 
   const dx = rift.x + 24 - (player.x + player.width / 2);
   const dy = rift.y + 24 - (player.y + player.height / 2);
   const distToRift = Math.sqrt(dx * dx + dy * dy);
-
   if (distToRift < 200) return;
 
   const angle = Math.atan2(dy, dx);
-
   const arrowX = canvas.width / 2 + Math.cos(angle) * 180;
   const arrowY = canvas.height / 2 + Math.sin(angle) * 180;
 
@@ -337,7 +350,6 @@ function drawCompassArrow(ctx, canvas) {
   ctx.fillStyle = "rgba(0, 255, 170, 0.4)";
   ctx.shadowColor = "#00ffaa";
   ctx.shadowBlur = 10;
-
   ctx.beginPath();
   ctx.moveTo(15, 0);
   ctx.lineTo(-10, -8);
@@ -345,6 +357,5 @@ function drawCompassArrow(ctx, canvas) {
   ctx.lineTo(-10, 8);
   ctx.closePath();
   ctx.fill();
-
   ctx.restore();
 }

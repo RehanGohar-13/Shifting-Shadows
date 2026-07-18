@@ -1,12 +1,12 @@
 // ============================================
-// Player Controller — Movement, Inventory, Meters
+// Player Controller
 // ============================================
 
 import { player } from "../entities/player.js";
 import { phantom, getSecondPhantom } from "../entities/phantom.js";
 import { keys } from "./input.js";
 import { sound } from "./sound-system.js";
-import { levelState } from "../levels/level-manager.js";
+import { levelState, moveRiftRandomly } from "../levels/level-manager.js";
 import {
   rectsCollide,
   distanceBetween,
@@ -15,6 +15,7 @@ import {
 
 export const playerEffects = {
   soulFlashTimer: 0,
+  rockFlashTimer: 0,
 };
 
 export function updatePlayer(dt, callbacks = {}) {
@@ -35,14 +36,12 @@ export function updatePlayer(dt, callbacks = {}) {
 
   player.isRunning = keys["shift"] && (dx !== 0 || dy !== 0);
   player.moving = dx !== 0 || dy !== 0;
-
   const speed = player.isRunning ? player.runSpeed : player.speed;
 
   if (dx !== 0 || dy !== 0) {
     player.direction = { x: dx, y: dy };
   }
 
-  // Movement X
   const newX = player.x + dx * speed * dt;
   if (
     !collidesWithWalls(
@@ -56,7 +55,6 @@ export function updatePlayer(dt, callbacks = {}) {
     player.x = newX;
   }
 
-  // Movement Y
   const newY = player.y + dy * speed * dt;
   if (
     !collidesWithWalls(
@@ -70,11 +68,10 @@ export function updatePlayer(dt, callbacks = {}) {
     player.y = newY;
   }
 
-  // Footstep sounds
+  // Footsteps
   if (player.moving) {
     player._stepTimer += dt;
     const stepInterval = player.isRunning ? 0.2 : 0.35;
-
     if (player._stepTimer >= stepInterval) {
       player._stepTimer = 0;
       if (player.isRunning) sound.playRunStep();
@@ -86,17 +83,12 @@ export function updatePlayer(dt, callbacks = {}) {
   player.trailTimer += dt;
   if (player.trailTimer > 0.3) {
     player.soulTrail.push({ x: player.x, y: player.y });
-
-    if (player.soulTrail.length > 40) {
-      player.soulTrail.shift();
-    }
-
+    if (player.soulTrail.length > 40) player.soulTrail.shift();
     player.trailTimer = 0;
   }
 
-  // Check if player is in candle light
+  // Light check
   player.inLight = false;
-
   for (const candle of levelState.candles) {
     if (distanceBetween(player, candle) < candle.radius) {
       player.inLight = true;
@@ -111,49 +103,75 @@ export function updatePlayer(dt, callbacks = {}) {
     player.sanity = Math.min(100, player.sanity + 5 * dt);
   }
 
-  // Corruption near phantom
+  // Corruption
   const distToPhantom = distanceBetween(player, phantom);
-
   if (distToPhantom < 150) {
     player.corruption += ((150 - distToPhantom) / 150) * 15 * dt;
   } else {
     player.corruption = Math.max(0, player.corruption - 2 * dt);
   }
 
-  // Soul collection
-  for (const soul of levelState.souls) {
-    if (!soul.collected && rectsCollide(player, soul)) {
-      soul.collected = true;
-      player.souls++;
-      playerEffects.soulFlashTimer = 0.3;
+  // Collect souls (one at a time)
+  if (!player.carryingSoul) {
+    for (const soul of levelState.souls) {
+      if (!soul.collected && rectsCollide(player, soul)) {
+        soul.collected = true;
+        player.carryingSoul = true;
+        playerEffects.soulFlashTimer = 0.3;
+        sound.playSoulCollect();
 
-      sound.playSoulCollect();
-
-      if (player.souls >= levelState.soulsNeeded && levelState.exitRift) {
-        levelState.exitRift.active = true;
-        sound.playRiftOpen();
+        if (levelState.exitRift) {
+          levelState.exitRift.active = true;
+        }
+        break;
       }
     }
   }
 
-  // Exit rift
+  // Deliver soul to rift
   if (
+    player.carryingSoul &&
     levelState.exitRift &&
-    levelState.exitRift.active &&
-    !levelState.exitRift.triggered &&
     rectsCollide(player, levelState.exitRift)
   ) {
-    levelState.exitRift.triggered = true;
-    if (nextLevel) nextLevel();
+    player.carryingSoul = false;
+    player.soulsDelivered++;
+    playerEffects.soulFlashTimer = 0.5;
+    sound.playRiftOpen();
+
+    if (player.soulsDelivered >= levelState.soulsNeeded) {
+      if (!levelState.exitRift.triggered) {
+        levelState.exitRift.triggered = true;
+        if (nextLevel) nextLevel();
+      }
+    } else {
+      moveRiftRandomly();
+    }
+  }
+
+  // Rock pickup
+  for (const pickup of levelState.rockPickups) {
+    if (
+      !pickup.collected &&
+      rectsCollide(player, {
+        x: pickup.x - 8,
+        y: pickup.y - 8,
+        width: 16,
+        height: 16,
+      })
+    ) {
+      pickup.collected = true;
+      player.rocks++;
+      playerEffects.rockFlashTimer = 0.2;
+      sound.playRockPickup();
+    }
   }
 
   // Place candle
   if (keys["e"] && player.candles > 0) {
     keys["e"] = false;
     player.candles--;
-
     sound.playCandlePlace();
-
     levelState.candles.push({
       x: player.x + player.width / 2,
       y: player.y + player.height / 2,
@@ -167,79 +185,48 @@ export function updatePlayer(dt, callbacks = {}) {
   if (keys["f"] && player.rocks > 0) {
     keys["f"] = false;
     player.rocks--;
-
     sound.playRockThrow();
-
     const throwDist = 200;
-
+    setTimeout(() => sound.playRockImpact(), 300);
     levelState.rocks.push({
       x: player.x + player.direction.x * throwDist,
       y: player.y + player.direction.y * throwDist,
-      timer: 3,
+      timer: 2,
       noiseRadius: 220,
     });
   }
 
-  // Death checks
-  if (player.sanity <= 0 && gameOver) {
-    gameOver("Your mind faded into nothing.");
-  }
-
-  if (player.corruption >= 100 && gameOver) {
-    gameOver("You became one of them.");
-  }
-
+  // Death
+  if (player.sanity <= 0 && gameOver) gameOver("Your mind faded into nothing.");
+  if (player.corruption >= 100 && gameOver) gameOver("You became one of them.");
   if (rectsCollide(player, phantom) && gameOver) {
     sound.playJumpscare();
     gameOver("The shadow consumed you.");
   }
 
   const secondPhantom = getSecondPhantom();
-
   if (secondPhantom && rectsCollide(player, secondPhantom) && gameOver) {
     sound.playJumpscare();
     gameOver("A second shadow consumed you.");
   }
 
-  updateLevelObjects(dt);
-  updateUI();
-}
-
-function updateLevelObjects(dt) {
-  // Candles
+  // Update objects
   for (let i = levelState.candles.length - 1; i >= 0; i--) {
-    const candle = levelState.candles[i];
-
-    if (!candle.permanent) {
-      candle.life -= dt;
-    }
-
-    if (candle.life <= 0) {
-      levelState.candles.splice(i, 1);
-    }
+    if (!levelState.candles[i].permanent) levelState.candles[i].life -= dt;
+    if (levelState.candles[i].life <= 0) levelState.candles.splice(i, 1);
   }
-
-  // Rocks
   for (let i = levelState.rocks.length - 1; i >= 0; i--) {
-    const rock = levelState.rocks[i];
-    rock.timer -= dt;
-
-    if (rock.timer <= 0) {
-      levelState.rocks.splice(i, 1);
-    }
+    levelState.rocks[i].timer -= dt;
+    if (levelState.rocks[i].timer <= 0) levelState.rocks.splice(i, 1);
   }
-}
 
-function updateUI() {
-  const sanityBar = document.getElementById("sanity-bar");
-  const corruptionBar = document.getElementById("corruption-bar");
-  const soulsText = document.getElementById("souls-text");
-  const candlesText = document.getElementById("candles-text");
-
-  if (sanityBar) sanityBar.style.width = Math.max(0, player.sanity) + "%";
-  if (corruptionBar)
-    corruptionBar.style.width = Math.min(100, player.corruption) + "%";
-  if (soulsText)
-    soulsText.textContent = player.souls + " / " + levelState.soulsNeeded;
-  if (candlesText) candlesText.textContent = player.candles;
+  // UI
+  document.getElementById("sanity-bar").style.width =
+    Math.max(0, player.sanity) + "%";
+  document.getElementById("corruption-bar").style.width =
+    Math.min(100, player.corruption) + "%";
+  const carryText = player.carryingSoul ? " [+1]" : "";
+  document.getElementById("souls-text").textContent =
+    player.soulsDelivered + " / " + levelState.soulsNeeded + carryText;
+  document.getElementById("candles-text").textContent = player.candles;
 }

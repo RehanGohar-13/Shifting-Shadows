@@ -1,5 +1,5 @@
 // ============================================
-// Level Manager — Load & Parse Maps
+// Level Manager
 // ============================================
 
 import { player } from "../entities/player.js";
@@ -19,6 +19,7 @@ export const levelState = {
   souls: [],
   candles: [],
   rocks: [],
+  rockPickups: [],
   exitRift: null,
   soulsNeeded: 0,
   currentMapCols: 24,
@@ -30,6 +31,7 @@ export function loadLevel(level) {
   levelState.souls = [];
   levelState.candles = [];
   levelState.rocks = [];
+  levelState.rockPickups = [];
   levelState.exitRift = null;
   levelState.soulsNeeded = level.soulsNeeded;
   clearSecondPhantom();
@@ -69,9 +71,6 @@ export function loadLevel(level) {
           phantom.x = x + 6;
           phantom.y = y + 6;
           break;
-        case "S":
-          // Ignore S from templates (we spawn souls properly later)
-          break;
         case "E":
           levelState.exitRift = {
             x,
@@ -79,67 +78,16 @@ export function loadLevel(level) {
             width: TILE_SIZE,
             height: TILE_SIZE,
             active: false,
+            triggered: false,
           };
           break;
       }
     }
   }
 
-  // Spawn candles STRATEGICALLY — spread evenly across map
-  const candleCount = 6 + Math.floor(Math.random() * 4);
-  const placedCandles = [];
-  const minDistanceBetweenCandles = 200;
-
-  for (let i = 0; i < candleCount; i++) {
-    let attempts = 0;
-    let placed = false;
-
-    while (attempts < 150 && !placed) {
-      const rx =
-        2 + Math.floor(Math.random() * (levelState.currentMapCols - 4));
-      const ry =
-        2 + Math.floor(Math.random() * (levelState.currentMapRows - 4));
-      const x = rx * TILE_SIZE + 24;
-      const y = ry * TILE_SIZE + 24;
-
-      // Must be on floor
-      if (!collidesWithWalls(x - 12, y - 12, 24, 24, levelState.walls)) {
-        // Must be far from other candles
-        let tooClose = false;
-        for (const other of placedCandles) {
-          const dx = other.x - x;
-          const dy = other.y - y;
-          if (Math.sqrt(dx * dx + dy * dy) < minDistanceBetweenCandles) {
-            tooClose = true;
-            break;
-          }
-        }
-
-        if (!tooClose) {
-          // Must be at least one wall neighbor (candles look better against walls)
-          const hasWallNeighbor =
-            collidesWithWalls(x - TILE_SIZE, y, 24, 24, levelState.walls) ||
-            collidesWithWalls(x + TILE_SIZE, y, 24, 24, levelState.walls) ||
-            collidesWithWalls(x, y - TILE_SIZE, 24, 24, levelState.walls) ||
-            collidesWithWalls(x, y + TILE_SIZE, 24, 24, levelState.walls);
-
-          if (hasWallNeighbor || attempts > 80) {
-            const newCandle = {
-              x: x,
-              y: y,
-              radius: 110,
-              life: 99999,
-              permanent: true,
-            };
-            levelState.candles.push(newCandle);
-            placedCandles.push(newCandle);
-            placed = true;
-          }
-        }
-      }
-      attempts++;
-    }
-  }
+  spawnSouls(levelState.soulsNeeded);
+  spawnCandles();
+  spawnRockPickups();
 
   player.reset();
   phantom.state = "IDLE";
@@ -167,8 +115,6 @@ export function loadLevel(level) {
 }
 
 function spawnSouls(count) {
-  levelState.souls = [];
-
   const grid = buildGridFromWalls();
   const start = worldToCell(player.x, player.y);
   const reachable = floodFill(grid, start.c, start.r);
@@ -177,14 +123,12 @@ function spawnSouls(count) {
     ? worldToCell(levelState.exitRift.x, levelState.exitRift.y)
     : null;
 
-  // candidates: reachable floor cells, not dead-ends, not too near player/exit
   const candidates = [];
   for (let r = 1; r < grid.length - 1; r++) {
     for (let c = 1; c < grid[0].length - 1; c++) {
       if (!reachable[r][c]) continue;
       if (grid[r][c] !== ".") continue;
 
-      // avoid dead-ends/closed pockets: require >=2 open neighbors
       const openN =
         (grid[r - 1][c] === "." ? 1 : 0) +
         (grid[r + 1][c] === "." ? 1 : 0) +
@@ -192,24 +136,62 @@ function spawnSouls(count) {
         (grid[r][c + 1] === "." ? 1 : 0);
       if (openN < 2) continue;
 
-      // keep away from player spawn
       if (Math.abs(c - start.c) + Math.abs(r - start.r) < 6) continue;
-
-      // keep away from exit
-      if (exitCell && Math.abs(c - exitCell.c) + Math.abs(r - exitCell.r) < 6)
+      if (exitCell && Math.abs(c - exitCell.c) + Math.abs(r - exitCell.r) < 5)
         continue;
 
       candidates.push({ c, r });
     }
   }
 
-  // place with spacing
-  const placed = [];
-  const minDistCells = 6; // ~288px (6*48) spacing
+  if (candidates.length === 0) return;
 
+  const cols = levelState.currentMapCols;
+  const rows = levelState.currentMapRows;
+  const midC = Math.floor(cols / 2);
+  const midR = Math.floor(rows / 2);
+
+  const zones = {
+    topLeft: [],
+    topRight: [],
+    bottomLeft: [],
+    bottomRight: [],
+    center: [],
+  };
+
+  for (const cand of candidates) {
+    const inCenterC = Math.abs(cand.c - midC) < cols / 4;
+    const inCenterR = Math.abs(cand.r - midR) < rows / 4;
+
+    if (inCenterC && inCenterR) zones.center.push(cand);
+    else if (cand.c < midC && cand.r < midR) zones.topLeft.push(cand);
+    else if (cand.c >= midC && cand.r < midR) zones.topRight.push(cand);
+    else if (cand.c < midC && cand.r >= midR) zones.bottomLeft.push(cand);
+    else zones.bottomRight.push(cand);
+  }
+
+  const zoneOrder = [
+    "topLeft",
+    "topRight",
+    "bottomRight",
+    "bottomLeft",
+    "center",
+  ];
+  const placed = [];
+  const minDistCells = 6;
+  let zoneIdx = 0;
   let attempts = 0;
-  while (placed.length < count && attempts < 2000 && candidates.length > 0) {
-    const pick = candidates[Math.floor(Math.random() * candidates.length)];
+
+  while (placed.length < count && attempts < 3000) {
+    const currentZone = zones[zoneOrder[zoneIdx % zoneOrder.length]];
+    zoneIdx++;
+
+    if (currentZone.length === 0) {
+      attempts++;
+      continue;
+    }
+
+    const pick = currentZone[Math.floor(Math.random() * currentZone.length)];
 
     let ok = true;
     for (const p of placed) {
@@ -220,19 +202,170 @@ function spawnSouls(count) {
       }
     }
 
-    if (ok) {
-      placed.push(pick);
-    }
-
+    if (ok) placed.push(pick);
     attempts++;
   }
 
-  // convert to soul objects
+  if (placed.length < count) {
+    let attempts2 = 0;
+    while (placed.length < count && attempts2 < 2000 && candidates.length > 0) {
+      const pick = candidates[Math.floor(Math.random() * candidates.length)];
+      let already = false;
+      for (const p of placed) {
+        if (p.c === pick.c && p.r === pick.r) {
+          already = true;
+          break;
+        }
+      }
+      if (!already) placed.push(pick);
+      attempts2++;
+    }
+  }
+
   for (const p of placed) {
     const x = p.c * TILE_SIZE + 12;
     const y = p.r * TILE_SIZE + 12;
     levelState.souls.push({ x, y, width: 24, height: 24, collected: false });
   }
+}
+
+function spawnCandles() {
+  const candleCount = 6 + Math.floor(Math.random() * 4);
+  const placedCandles = [];
+  const minDistanceBetweenCandles = 200;
+
+  for (let i = 0; i < candleCount; i++) {
+    let attempts = 0;
+    let placed = false;
+
+    while (attempts < 150 && !placed) {
+      const rx =
+        2 + Math.floor(Math.random() * (levelState.currentMapCols - 4));
+      const ry =
+        2 + Math.floor(Math.random() * (levelState.currentMapRows - 4));
+      const x = rx * TILE_SIZE + 24;
+      const y = ry * TILE_SIZE + 24;
+
+      if (!collidesWithWalls(x - 12, y - 12, 24, 24, levelState.walls)) {
+        let tooClose = false;
+        for (const other of placedCandles) {
+          const dx = other.x - x;
+          const dy = other.y - y;
+          if (Math.sqrt(dx * dx + dy * dy) < minDistanceBetweenCandles) {
+            tooClose = true;
+            break;
+          }
+        }
+
+        if (!tooClose) {
+          const newCandle = { x, y, radius: 110, life: 99999, permanent: true };
+          levelState.candles.push(newCandle);
+          placedCandles.push(newCandle);
+          placed = true;
+        }
+      }
+      attempts++;
+    }
+  }
+}
+
+function spawnRockPickups() {
+  const placed = [];
+  const minDistance = 100;
+
+  for (const candle of levelState.candles) {
+    if (Math.random() > 0.6) continue;
+
+    let attempts = 0;
+    let done = false;
+
+    while (attempts < 30 && !done) {
+      const angle = Math.random() * Math.PI * 2;
+      const distance = 30 + Math.random() * 50;
+      const x = candle.x + Math.cos(angle) * distance;
+      const y = candle.y + Math.sin(angle) * distance;
+
+      if (!collidesWithWalls(x - 8, y - 8, 16, 16, levelState.walls)) {
+        let tooClose = false;
+        for (const p of placed) {
+          const dx = p.x - x;
+          const dy = p.y - y;
+          if (Math.sqrt(dx * dx + dy * dy) < minDistance) {
+            tooClose = true;
+            break;
+          }
+        }
+
+        const distToPlayer = Math.sqrt(
+          (x - player.x) ** 2 + (y - player.y) ** 2,
+        );
+        if (distToPlayer < 150) tooClose = true;
+
+        if (!tooClose) {
+          const pickup = { x, y, collected: false };
+          levelState.rockPickups.push(pickup);
+          placed.push(pickup);
+          done = true;
+        }
+      }
+      attempts++;
+    }
+  }
+
+  if (levelState.rockPickups.length > 5) {
+    levelState.rockPickups = levelState.rockPickups.slice(0, 5);
+  }
+
+  if (levelState.rockPickups.length < 2) {
+    let attempts = 0;
+    while (levelState.rockPickups.length < 2 && attempts < 100) {
+      const rx =
+        3 + Math.floor(Math.random() * (levelState.currentMapCols - 6));
+      const ry =
+        3 + Math.floor(Math.random() * (levelState.currentMapRows - 6));
+      const x = rx * TILE_SIZE + 24;
+      const y = ry * TILE_SIZE + 24;
+
+      if (!collidesWithWalls(x - 8, y - 8, 16, 16, levelState.walls)) {
+        const distToPlayer = Math.sqrt(
+          (x - player.x) ** 2 + (y - player.y) ** 2,
+        );
+        if (distToPlayer > 200) {
+          levelState.rockPickups.push({ x, y, collected: false });
+        }
+      }
+      attempts++;
+    }
+  }
+}
+
+export function moveRiftRandomly() {
+  if (!levelState.exitRift) return;
+
+  const grid = buildGridFromWalls();
+  const start = worldToCell(player.x, player.y);
+  const reachable = floodFill(grid, start.c, start.r);
+
+  const candidates = [];
+  for (let r = 2; r < grid.length - 2; r++) {
+    for (let c = 2; c < grid[0].length - 2; c++) {
+      if (!reachable[r][c]) continue;
+      if (grid[r][c] !== ".") continue;
+
+      const distToPlayer = Math.abs(c - start.c) + Math.abs(r - start.r);
+      if (distToPlayer < 8) continue;
+
+      candidates.push({ c, r });
+    }
+  }
+
+  if (candidates.length === 0) return;
+
+  const pick = candidates[Math.floor(Math.random() * candidates.length)];
+  levelState.exitRift.x = pick.c * TILE_SIZE;
+  levelState.exitRift.y = pick.r * TILE_SIZE;
+  levelState.exitRift.active = true;
+  levelState.exitRift.triggered = false;
 }
 
 function buildGridFromWalls() {
@@ -253,8 +386,9 @@ function floodFill(grid, startC, startR) {
   const cols = grid[0].length;
   const seen = Array.from({ length: rows }, () => Array(cols).fill(false));
 
-  const q = [];
-  q.push({ c: startC, r: startR });
+  if (grid[startR][startC] === "#") return seen;
+
+  const q = [{ c: startC, r: startR }];
   seen[startR][startC] = true;
 
   const dirs = [

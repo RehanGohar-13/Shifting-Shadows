@@ -32,6 +32,13 @@ import {
   updateEndlessRecord,
 } from "./systems/progress.js";
 import { getRandomMap, countSoulsInMap } from "./levels/story-map-pool.js";
+import {
+  startNightmare,
+  updateNightmare,
+  nightmareState,
+  getRandomNightmareMap,
+  endNightmare,
+} from "./systems/nightmare-mode.js";
 
 // ── Canvas Setup ──
 const canvas = document.getElementById("gameCanvas");
@@ -59,6 +66,7 @@ const state = {
   endlessScore: 0,
   gameTime: 0,
   lastTime: 0,
+  nightmareUnlocked: false,
 };
 
 // ── Input Setup ──
@@ -134,6 +142,11 @@ function nextLevel() {
 
   sound.playLevelComplete();
 
+  if (state.currentMode === "nightmare") {
+    winNightmare();
+    return;
+  }
+
   if (state.currentMode === "endless") {
     state.endlessScore += state.endlessFloor * 100;
     state.endlessFloor++;
@@ -143,7 +156,6 @@ function nextLevel() {
 
   state.currentLevel++;
 
-  // Check for chapter completion
   if (state.currentLevel === 2) completeChapter(1);
   if (state.currentLevel === 4) completeChapter(2);
   if (state.currentLevel >= LEVELS.length) {
@@ -227,16 +239,29 @@ function returnToMenu() {
   state.endlessFloor = 1;
   state.endlessScore = 0;
   state.gameTime = 0;
+  state.lastTime = 0;
   phantom.reset();
   resetStory();
+  endNightmare();
 
+  // Reset player
+  player.reset();
+
+  // Hide ALL overlays
+  document.getElementById("nightmare-hud").classList.add("hidden");
   document.getElementById("gameover-overlay").classList.add("hidden");
   document.getElementById("win-overlay").classList.add("hidden");
   document.getElementById("endless-over-overlay").classList.add("hidden");
   document.getElementById("chapter-overlay").classList.add("hidden");
   document.getElementById("story-overlay").classList.add("hidden");
+  document.getElementById("transition-overlay").classList.add("hidden");
   document.getElementById("ui-layer").style.display = "none";
   document.getElementById("menu-overlay").style.display = "flex";
+
+  // Reset win screen text
+  document.getElementById("win-title").textContent = "YOU ESCAPED";
+  document.getElementById("win-subtitle").textContent =
+    "The shadow still learns.";
 }
 
 // ── Endless Mode ──
@@ -261,16 +286,20 @@ function gameLoop(timestamp) {
 
   if (state.current === GameState.PLAYING) {
     state.gameTime += dt;
-
-    // Random ambient scare sounds
     if (Math.random() < 0.003 && sound.playAmbientScare) {
       sound.playAmbientScare();
     }
-
     updatePlayer(dt, { nextLevel, gameOver });
     updatePhantom(dt);
     updateSecondPhantom(dt, { gameOver });
     camera.update(dt);
+
+    // Nightmare mode updates
+    if (state.currentMode === "nightmare") {
+      updateNightmare(dt, player.souls);
+      updateNightmareHUD();
+    }
+
     render(ctx, canvas, state.gameTime);
   }
 
@@ -280,9 +309,20 @@ function gameLoop(timestamp) {
 function refreshChapterCards() {
   const progress = loadProgress();
   document.querySelectorAll(".chapter-card").forEach((card) => {
-    const chapter = parseInt(card.getAttribute("data-chapter"));
+    const chapterAttr = card.getAttribute("data-chapter");
     card.classList.remove("locked", "completed");
 
+    if (chapterAttr === "nightmare") {
+      // COMPLETELY HIDE until chapter 3 done
+      if (!progress.chapter3Complete) {
+        card.style.display = "none";
+      } else {
+        card.style.display = "flex";
+      }
+      return;
+    }
+
+    const chapter = parseInt(chapterAttr);
     if (chapter + 1 > progress.chaptersUnlocked) {
       card.classList.add("locked");
     }
@@ -294,6 +334,153 @@ function refreshChapterCards() {
     if (chapter === 2 && progress.chapter3Complete)
       card.classList.add("completed");
   });
+}
+
+function startNightmareMode() {
+  document.getElementById("chapter-overlay").classList.add("hidden");
+  state.currentMode = "nightmare";
+  state.currentLevel = 0;
+  phantom.reset();
+  state.gameTime = 0;
+
+  showStory(
+    `<span class="story-danger">THE NIGHTMARE.</span><br><br>
+    Every 30 seconds, the world changes.<br>
+    Every soul you take makes it stronger.<br>
+    Every 35 seconds — it learns anyway.<br><br>
+    You have 5 minutes.<br><br>
+    <span class="story-highlight">Escape. Or become it.</span>`,
+    () => {
+      startNightmareLevel();
+    },
+  );
+}
+
+function startNightmareLevel() {
+  document.getElementById("ui-layer").style.display = "block";
+  document.getElementById("nightmare-hud").classList.remove("hidden");
+
+  const map = getRandomNightmareMap();
+  if (!map) {
+    console.error("Failed to load nightmare map");
+    returnToMenu();
+    return;
+  }
+
+  const nightmareLevel = {
+    name: "THE NIGHTMARE",
+    ability: "CHAOS",
+    description: '"It changes. It learns. You die."',
+    mutations: {},
+    soulsNeeded: 8,
+    phantomSpeed: 60,
+    map: map,
+  };
+
+  loadLevel(nightmareLevel);
+
+  // Force phantom to start with no powers
+  phantom.canSense = false;
+  phantom.canManifest = false;
+  phantom.canTrace = false;
+  phantom.canPhase = false;
+  phantom.canSplit = false;
+  phantom.speed = 60;
+
+  state.current = GameState.PLAYING;
+
+  startNightmare({
+    onMapMorph: () => morphNightmareMap(),
+    onGameOver: (reason) => gameOver(reason),
+    onWin: () => winNightmare(),
+  });
+}
+
+function morphNightmareMap() {
+  // Flash effect
+  const flash = document.createElement("div");
+  flash.id = "morph-flash";
+  document.getElementById("game-wrapper").appendChild(flash);
+  setTimeout(() => flash.remove(), 600);
+
+  // Save player state
+  const savedSouls = player.souls;
+  const savedSanity = player.sanity;
+  const savedCorruption = player.corruption;
+  const savedCandles = player.candles;
+  const savedRocks = player.rocks;
+
+  // Save phantom powers
+  const powers = {
+    canSense: phantom.canSense,
+    canManifest: phantom.canManifest,
+    canTrace: phantom.canTrace,
+    canPhase: phantom.canPhase,
+    canSplit: phantom.canSplit,
+    speed: phantom.speed,
+  };
+
+  // Load new map
+  const newMap = getRandomNightmareMap();
+  const nightmareLevel = {
+    name: "THE NIGHTMARE",
+    ability: "CHAOS",
+    description: "",
+    mutations: {},
+    soulsNeeded: 8 - savedSouls, // Only need remaining
+    phantomSpeed: powers.speed,
+    map: newMap,
+  };
+
+  loadLevel(nightmareLevel);
+
+  // Restore player state
+  player.souls = savedSouls;
+  player.sanity = savedSanity;
+  player.corruption = savedCorruption;
+  player.candles = savedCandles;
+  player.rocks = savedRocks;
+
+  // Restore phantom powers
+  phantom.canSense = powers.canSense;
+  phantom.canManifest = powers.canManifest;
+  phantom.canTrace = powers.canTrace;
+  phantom.canPhase = powers.canPhase;
+  phantom.canSplit = powers.canSplit;
+  phantom.speed = powers.speed;
+}
+
+function winNightmare() {
+  endNightmare();
+  state.current = GameState.WIN;
+  document.getElementById("nightmare-hud").classList.add("hidden");
+  document.getElementById("ui-layer").style.display = "none";
+  document.getElementById("win-overlay").classList.remove("hidden");
+  document.getElementById("win-title").textContent = "YOU SURVIVED";
+  document.getElementById("win-subtitle").textContent =
+    "The nightmare could not hold you.";
+  document.getElementById("win-stats").innerHTML =
+    `Time Remaining: ${Math.floor(nightmareState.timeLeft)}s<br>Powers Unlocked: ${nightmareState.powersUnlocked.length}`;
+}
+
+function updateNightmareHUD() {
+  if (!nightmareState.active) return;
+
+  const minutes = Math.floor(nightmareState.timeLeft / 60);
+  const seconds = Math.floor(nightmareState.timeLeft % 60);
+  document.getElementById("nightmare-timer").textContent =
+    `${minutes}:${seconds.toString().padStart(2, "0")}`;
+
+  const morphTime = Math.ceil(nightmareState.mapMorphTimer);
+  document.getElementById("nightmare-morph").textContent =
+    `MAP MORPHS IN ${morphTime}s`;
+
+  // Red pulse when timer < 30s
+  const timerEl = document.getElementById("nightmare-timer");
+  if (nightmareState.timeLeft < 30) {
+    timerEl.style.color = "#ff0000";
+    timerEl.style.textShadow = "0 0 20px #ff0000";
+  }
 }
 
 // ── Menu Button Events ──
@@ -309,12 +496,26 @@ document.getElementById("story-button").addEventListener("click", () => {
 
 document.querySelectorAll(".chapter-card").forEach((card) => {
   card.addEventListener("click", () => {
-    const chapter = parseInt(card.getAttribute("data-chapter"));
+    const chapterAttr = card.getAttribute("data-chapter");
 
-    // Check if chapter is locked
+    // Handle nightmare mode
+    if (chapterAttr === "nightmare") {
+      const progress = loadProgress();
+      if (!progress.chapter3Complete) {
+        // Show locked message
+        card.style.animation = "lockedShake 0.4s ease";
+        setTimeout(() => {
+          card.style.animation = "";
+        }, 400);
+        return;
+      }
+      startNightmareMode();
+      return;
+    }
+
+    const chapter = parseInt(chapterAttr);
     const progress = loadProgress();
     if (chapter + 1 > progress.chaptersUnlocked) {
-      // Play locked sound / visual feedback
       card.style.animation = "lockedShake 0.4s ease";
       setTimeout(() => {
         card.style.animation = "";
@@ -325,7 +526,6 @@ document.querySelectorAll(".chapter-card").forEach((card) => {
     const chapterStartLevels = [0, 2, 4];
     state.currentLevel = chapterStartLevels[chapter];
     state.currentMode = "story";
-
     document.getElementById("chapter-overlay").classList.add("hidden");
     phantom.reset();
     state.gameTime = 0;

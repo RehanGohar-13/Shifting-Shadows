@@ -1,11 +1,19 @@
 // ============================================
-// Darkness / Vision System
+// Darkness System
 // ============================================
 
 import { player } from "../entities/player.js";
 import { camera } from "./camera.js";
 
-export function drawDarkness(ctx, canvas, candles, exitRift, souls, rocks) {
+export function drawDarkness(
+  ctx,
+  canvas,
+  candles,
+  exitRift,
+  souls,
+  rocks,
+  rockPickups,
+) {
   const darkCanvas = document.createElement("canvas");
   darkCanvas.width = canvas.width;
   darkCanvas.height = canvas.height;
@@ -15,7 +23,6 @@ export function drawDarkness(ctx, canvas, candles, exitRift, souls, rocks) {
   dCtx.fillRect(0, 0, darkCanvas.width, darkCanvas.height);
   dCtx.globalCompositeOperation = "destination-out";
 
-  // Player vision
   const pcx = player.x - camera.x + player.width / 2;
   const pcy = player.y - camera.y + player.height / 2;
   const visionRadius = player.isRunning ? 85 : 105;
@@ -33,7 +40,6 @@ export function drawDarkness(ctx, canvas, candles, exitRift, souls, rocks) {
   dCtx.fillStyle = playerGlow;
   dCtx.fillRect(0, 0, darkCanvas.width, darkCanvas.height);
 
-  // Candle lights
   for (const candle of candles) {
     const cx = candle.x - camera.x;
     const cy = candle.y - camera.y;
@@ -51,7 +57,6 @@ export function drawDarkness(ctx, canvas, candles, exitRift, souls, rocks) {
     dCtx.fillRect(0, 0, darkCanvas.width, darkCanvas.height);
   }
 
-  // Rift glow
   if (exitRift && exitRift.active) {
     const rx = exitRift.x + 24 - camera.x;
     const ry = exitRift.y + 24 - camera.y;
@@ -62,7 +67,6 @@ export function drawDarkness(ctx, canvas, candles, exitRift, souls, rocks) {
     dCtx.fillRect(0, 0, darkCanvas.width, darkCanvas.height);
   }
 
-  // Soul glow — bigger and brighter
   for (const soul of souls) {
     if (!soul.collected) {
       const sx = soul.x + 12 - camera.x;
@@ -75,7 +79,6 @@ export function drawDarkness(ctx, canvas, candles, exitRift, souls, rocks) {
     }
   }
 
-  // Rock glow — makes thrown rocks visible
   if (rocks) {
     for (const rock of rocks) {
       const rx = rock.x - camera.x;

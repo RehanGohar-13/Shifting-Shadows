@@ -7,9 +7,9 @@ class SoundSystem {
     this.ctx = null;
     this.initialized = false;
     this.ambientNode = null;
-    this.heartbeatNode = null;
     this.masterVolume = null;
-    this.muted = false;
+    this.musicElement = null;
+    this._levelCompletePlaying = false;
   }
 
   init() {
@@ -19,9 +19,37 @@ class SoundSystem {
     this.masterVolume.gain.value = 0.5;
     this.masterVolume.connect(this.ctx.destination);
     this.initialized = true;
+
+    this.initMusic();
   }
 
-  // ── FOOTSTEPS ──
+  initMusic() {
+    try {
+      this.musicElement = new Audio("assets/music/ambient.mp3");
+      this.musicElement.loop = true;
+      this.musicElement.volume = 0.15;
+      this.musicElement.play().catch((err) => {
+        console.log(
+          "Music autoplay blocked (will play on interaction):",
+          err.message,
+        );
+      });
+    } catch (e) {
+      console.warn("Music file not found:", e);
+    }
+  }
+
+  setMusicVolume(volume) {
+    if (this.musicElement) this.musicElement.volume = volume;
+  }
+
+  stopMusic() {
+    if (this.musicElement) {
+      this.musicElement.pause();
+      this.musicElement.currentTime = 0;
+    }
+  }
+
   playFootstep() {
     if (!this.initialized) return;
     const osc = this.ctx.createOscillator();
@@ -45,7 +73,6 @@ class SoundSystem {
     osc.stop(this.ctx.currentTime + 0.1);
   }
 
-  // ── RUNNING FOOTSTEPS (louder + faster) ──
   playRunStep() {
     if (!this.initialized) return;
     const osc = this.ctx.createOscillator();
@@ -64,12 +91,10 @@ class SoundSystem {
     osc.stop(this.ctx.currentTime + 0.08);
   }
 
-  // ── SOUL COLLECT ──
   playSoulCollect() {
     if (!this.initialized) return;
     const t = this.ctx.currentTime;
 
-    // Ethereal chime — two harmonics
     for (let i = 0; i < 3; i++) {
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
@@ -89,7 +114,6 @@ class SoundSystem {
     }
   }
 
-  // ── RIFT OPEN ──
   playRiftOpen() {
     if (!this.initialized) return;
     const t = this.ctx.currentTime;
@@ -119,12 +143,10 @@ class SoundSystem {
     osc2.stop(t + 1.0);
   }
 
-  // ── CANDLE PLACE ──
   playCandlePlace() {
     if (!this.initialized) return;
     const t = this.ctx.currentTime;
 
-    // Soft flame ignite
     const bufferSize = this.ctx.sampleRate * 0.3;
     const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
     const data = buffer.getChannelData(0);
@@ -153,7 +175,6 @@ class SoundSystem {
     noise.stop(t + 0.3);
   }
 
-  // ── ROCK THROW ──
   playRockThrow() {
     if (!this.initialized) return;
     const t = this.ctx.currentTime;
@@ -173,30 +194,68 @@ class SoundSystem {
 
     osc.start(t);
     osc.stop(t + 0.2);
-
-    // Impact sound after delay
-    setTimeout(() => {
-      const impact = this.ctx.createOscillator();
-      const impactGain = this.ctx.createGain();
-
-      impact.type = "triangle";
-      impact.frequency.value = 100 + Math.random() * 50;
-
-      impactGain.gain.setValueAtTime(0.15, this.ctx.currentTime);
-      impactGain.gain.exponentialRampToValueAtTime(
-        0.001,
-        this.ctx.currentTime + 0.1,
-      );
-
-      impact.connect(impactGain);
-      impactGain.connect(this.masterVolume);
-
-      impact.start();
-      impact.stop(this.ctx.currentTime + 0.1);
-    }, 200);
   }
 
-  // ── PHANTOM DRONE (proximity) ──
+  playRockImpact() {
+    if (!this.initialized) return;
+    const t = this.ctx.currentTime;
+
+    // Impact thud
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(120, t);
+    osc.frequency.exponentialRampToValueAtTime(40, t + 0.1);
+
+    gain.gain.setValueAtTime(0.2, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+
+    osc.connect(gain);
+    gain.connect(this.masterVolume);
+
+    osc.start(t);
+    osc.stop(t + 0.15);
+
+    // Small noise burst
+    const bufferSize = this.ctx.sampleRate * 0.15;
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.1));
+    }
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buffer;
+    const noiseGain = this.ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.08, t);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+    noise.connect(noiseGain);
+    noiseGain.connect(this.masterVolume);
+    noise.start(t);
+    noise.stop(t + 0.15);
+  }
+
+  playRockPickup() {
+    if (!this.initialized) return;
+    const t = this.ctx.currentTime;
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(300, t);
+    osc.frequency.exponentialRampToValueAtTime(500, t + 0.1);
+
+    gain.gain.setValueAtTime(0.08, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+
+    osc.connect(gain);
+    gain.connect(this.masterVolume);
+
+    osc.start(t);
+    osc.stop(t + 0.15);
+  }
+
   startPhantomDrone() {
     if (!this.initialized || this.ambientNode) return;
 
@@ -231,12 +290,10 @@ class SoundSystem {
     }
   }
 
-  // ── HEARTBEAT ──
   playHeartbeat(speed) {
     if (!this.initialized) return;
     const t = this.ctx.currentTime;
 
-    // Double thump
     for (let i = 0; i < 2; i++) {
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
@@ -256,12 +313,10 @@ class SoundSystem {
     }
   }
 
-  // ── DEATH SOUND ──
   playDeath() {
     if (!this.initialized) return;
     const t = this.ctx.currentTime;
 
-    // Deep descending tone
     const osc = this.ctx.createOscillator();
     const osc2 = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
@@ -286,7 +341,6 @@ class SoundSystem {
     osc.stop(t + 1.5);
     osc2.stop(t + 1.5);
 
-    // Static noise burst
     const bufferSize = this.ctx.sampleRate * 0.5;
     const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
     const data = buffer.getChannelData(0);
@@ -306,12 +360,10 @@ class SoundSystem {
     noise.stop(t + 0.5);
   }
 
-  // ── MUTATION REVEAL ──
   playMutationReveal() {
     if (!this.initialized) return;
     const t = this.ctx.currentTime;
 
-    // Deep bass hit
     const bass = this.ctx.createOscillator();
     const bassGain = this.ctx.createGain();
     bass.type = "sine";
@@ -323,7 +375,6 @@ class SoundSystem {
     bass.start(t);
     bass.stop(t + 1.0);
 
-    // Eerie rising tone
     const rise = this.ctx.createOscillator();
     const riseGain = this.ctx.createGain();
     rise.type = "sine";
@@ -336,33 +387,11 @@ class SoundSystem {
     riseGain.connect(this.masterVolume);
     rise.start(t + 0.3);
     rise.stop(t + 1.8);
-
-    // Glitch noise
-    const bufferSize = this.ctx.sampleRate * 0.15;
-    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      data[i] = (Math.random() * 2 - 1) * 0.5;
-    }
-
-    for (let i = 0; i < 3; i++) {
-      const noise = this.ctx.createBufferSource();
-      noise.buffer = buffer;
-      const nGain = this.ctx.createGain();
-      nGain.gain.setValueAtTime(0.08, t + 0.1 + i * 0.15);
-      nGain.gain.exponentialRampToValueAtTime(0.001, t + 0.2 + i * 0.15);
-      noise.connect(nGain);
-      nGain.connect(this.masterVolume);
-      noise.start(t + 0.1 + i * 0.15);
-      noise.stop(t + 0.25 + i * 0.15);
-    }
   }
 
-  // ── AMBIENT BACKGROUND ──
   startAmbient() {
     if (!this.initialized) return;
 
-    // Low drone
     const drone = this.ctx.createOscillator();
     const droneGain = this.ctx.createGain();
     const droneFilter = this.ctx.createBiquadFilter();
@@ -380,34 +409,8 @@ class SoundSystem {
     droneGain.connect(this.masterVolume);
 
     drone.start();
-
-    // Subtle wind noise
-    const bufferSize = this.ctx.sampleRate * 4;
-    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      data[i] = (Math.random() * 2 - 1) * 0.3;
-    }
-
-    const wind = this.ctx.createBufferSource();
-    wind.buffer = buffer;
-    wind.loop = true;
-
-    const windFilter = this.ctx.createBiquadFilter();
-    windFilter.type = "lowpass";
-    windFilter.frequency.value = 400;
-
-    const windGain = this.ctx.createGain();
-    windGain.gain.value = 0.02;
-
-    wind.connect(windFilter);
-    windFilter.connect(windGain);
-    windGain.connect(this.masterVolume);
-
-    wind.start();
   }
 
-  // ── LEVEL COMPLETE ──
   playLevelComplete() {
     if (!this.initialized) return;
     if (this._levelCompletePlaying) return;
@@ -418,6 +421,7 @@ class SoundSystem {
 
     const t = this.ctx.currentTime;
     const notes = [400, 500, 600, 800];
+
     notes.forEach((freq, i) => {
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
@@ -436,7 +440,6 @@ class SoundSystem {
     });
   }
 
-  // ── WHISPER ──
   playWhisper() {
     if (!this.initialized) return;
     const t = this.ctx.currentTime;
@@ -470,12 +473,10 @@ class SoundSystem {
     noise.stop(t + 0.8);
   }
 
-  // ── JUMPSCARE STING ──
   playJumpscare() {
     if (!this.initialized) return;
     const t = this.ctx.currentTime;
 
-    // Sharp dissonant chord
     const freqs = [200, 267, 317, 450];
     freqs.forEach((freq) => {
       const osc = this.ctx.createOscillator();
@@ -493,24 +494,6 @@ class SoundSystem {
       osc.start(t);
       osc.stop(t + 0.4);
     });
-
-    // Noise burst
-    const bufferSize = this.ctx.sampleRate * 0.2;
-    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.1));
-    }
-
-    const noise = this.ctx.createBufferSource();
-    noise.buffer = buffer;
-    const nGain = this.ctx.createGain();
-    nGain.gain.setValueAtTime(0.2, t);
-    nGain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
-    noise.connect(nGain);
-    nGain.connect(this.masterVolume);
-    noise.start(t);
-    noise.stop(t + 0.2);
   }
 
   playAmbientScare() {
@@ -581,14 +564,6 @@ class SoundSystem {
       gain.connect(this.masterVolume);
       noise.start(t);
       noise.stop(t + 1.5);
-    }
-  }
-
-  stopAll() {
-    if (this.ambientNode) {
-      this.ambientNode.stop();
-      this.ambientNode = null;
-      this.ambientGain = null;
     }
   }
 }

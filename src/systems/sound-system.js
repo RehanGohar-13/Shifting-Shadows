@@ -25,7 +25,7 @@ class SoundSystem {
 
   initMusic() {
     try {
-      this.musicElement = new Audio("assets/music/ambient.mp3");
+      this.musicElement = new Audio("./assets/music/ambient.mp3");
       this.musicElement.loop = true;
       this.musicElement.volume = 0.15;
       this.musicElement.play().catch((err) => {

@@ -16,15 +16,15 @@ class SpriteSystem {
       this.sprites.wall = this.createWallTile();
 
       const spriteMap = {
-        player: "assets/sprites/Tiles/tile_0096.png",
-        phantom: "assets/sprites/Tiles/tile_0121.png",
-        phantomChase: "assets/sprites/Tiles/tile_0121.png",
-        phantom2: "assets/sprites/Tiles/tile_0108.png",
-        floor: "assets/sprites/Tiles/tile_0040.png",
-        soul: "assets/sprites/Tiles/tile_0113.png",
-        candle: "assets/sprites/Tiles/tile_0127.png",
-        rock: "assets/sprites/rock.png",
-        rift: "assets/sprites/rift.png",
+        player: "./assets/sprites/Tiles/tile_0096.png",
+        phantom: "./assets/sprites/Tiles/tile_0121.png",
+        phantomChase: "./assets/sprites/Tiles/tile_0121.png",
+        phantom2: "./assets/sprites/Tiles/tile_0108.png",
+        floor: "./assets/sprites/Tiles/tile_0040.png",
+        soul: "./assets/sprites/Tiles/tile_0113.png",
+        candle: "./assets/sprites/Tiles/tile_0127.png",
+        rock: "./assets/sprites/rock.png",
+        rift: "./assets/sprites/rift.png",
       };
 
       this.totalCount = Object.keys(spriteMap).length;

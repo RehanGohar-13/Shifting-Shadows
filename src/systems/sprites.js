@@ -25,6 +25,7 @@ class SpriteSystem {
         candle: "./assets/sprites/Tiles/tile_0127.png",
         rock: "./assets/sprites/rock.png",
         rift: "./assets/sprites/rift.png",
+        bone: "./assets/sprites/Tiles/tile_0130.png",
       };
 
       this.totalCount = Object.keys(spriteMap).length;

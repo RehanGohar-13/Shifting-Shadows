@@ -21,6 +21,7 @@ export const levelState = {
   rocks: [],
   rockPickups: [],
   candlePickups: [],
+  bones: [],
   exitRift: null,
   soulsNeeded: 0,
   currentMapCols: 24,
@@ -34,6 +35,7 @@ export function loadLevel(level) {
   levelState.rocks = [];
   levelState.rockPickups = [];
   levelState.candlePickups = [];
+  levelState.bones = [];
   levelState.exitRift = null;
   levelState.soulsNeeded = level.soulsNeeded;
   clearSecondPhantom();
@@ -93,8 +95,8 @@ export function loadLevel(level) {
   spawnCandles();
   spawnRockPickups();
   spawnCandlePickups();
+  spawnBones();
 
-  player.reset();
   phantom.state = "IDLE";
   phantomAI.lastKnownPlayer = null;
   phantomAI.alertLevel = 0;
@@ -119,6 +121,33 @@ export function loadLevel(level) {
   camera.snap();
 }
 
+function spawnBones() {
+  // Scatter bones on floor for atmosphere
+  const boneCount = 5 + Math.floor(Math.random() * 8);
+  for (let i = 0; i < boneCount; i++) {
+    let attempts = 0;
+    while (attempts < 50) {
+      const rx =
+        2 + Math.floor(Math.random() * (levelState.currentMapCols - 4));
+      const ry =
+        2 + Math.floor(Math.random() * (levelState.currentMapRows - 4));
+      const x = rx * TILE_SIZE + Math.random() * 20 - 10;
+      const y = ry * TILE_SIZE + Math.random() * 20 - 10;
+
+      if (!collidesWithWalls(x, y, 16, 16, levelState.walls)) {
+        levelState.bones.push({
+          x,
+          y,
+          rotation: Math.random() * Math.PI * 2,
+          whispered: false, // For random whisper events
+        });
+        break;
+      }
+      attempts++;
+    }
+  }
+}
+
 function spawnSouls(count) {
   const grid = buildGridFromWalls();
   const start = worldToCell(player.x, player.y);
@@ -133,71 +162,27 @@ function spawnSouls(count) {
     for (let c = 1; c < grid[0].length - 1; c++) {
       if (!reachable[r][c]) continue;
       if (grid[r][c] !== ".") continue;
-
       const openN =
         (grid[r - 1][c] === "." ? 1 : 0) +
         (grid[r + 1][c] === "." ? 1 : 0) +
         (grid[r][c - 1] === "." ? 1 : 0) +
         (grid[r][c + 1] === "." ? 1 : 0);
       if (openN < 2) continue;
-
       if (Math.abs(c - start.c) + Math.abs(r - start.r) < 6) continue;
       if (exitCell && Math.abs(c - exitCell.c) + Math.abs(r - exitCell.r) < 5)
         continue;
-
       candidates.push({ c, r });
     }
   }
 
   if (candidates.length === 0) return;
 
-  const cols = levelState.currentMapCols;
-  const rows = levelState.currentMapRows;
-  const midC = Math.floor(cols / 2);
-  const midR = Math.floor(rows / 2);
-
-  const zones = {
-    topLeft: [],
-    topRight: [],
-    bottomLeft: [],
-    bottomRight: [],
-    center: [],
-  };
-
-  for (const cand of candidates) {
-    const inCenterC = Math.abs(cand.c - midC) < cols / 4;
-    const inCenterR = Math.abs(cand.r - midR) < rows / 4;
-
-    if (inCenterC && inCenterR) zones.center.push(cand);
-    else if (cand.c < midC && cand.r < midR) zones.topLeft.push(cand);
-    else if (cand.c >= midC && cand.r < midR) zones.topRight.push(cand);
-    else if (cand.c < midC && cand.r >= midR) zones.bottomLeft.push(cand);
-    else zones.bottomRight.push(cand);
-  }
-
-  const zoneOrder = [
-    "topLeft",
-    "topRight",
-    "bottomRight",
-    "bottomLeft",
-    "center",
-  ];
   const placed = [];
   const minDistCells = 5;
-  let zoneIdx = 0;
   let attempts = 0;
 
-  while (placed.length < count && attempts < 3000) {
-    const currentZone = zones[zoneOrder[zoneIdx % zoneOrder.length]];
-    zoneIdx++;
-
-    if (currentZone.length === 0) {
-      attempts++;
-      continue;
-    }
-
-    const pick = currentZone[Math.floor(Math.random() * currentZone.length)];
-
+  while (placed.length < count && attempts < 3000 && candidates.length > 0) {
+    const pick = candidates[Math.floor(Math.random() * candidates.length)];
     let ok = true;
     for (const p of placed) {
       const d = Math.abs(p.c - pick.c) + Math.abs(p.r - pick.r);
@@ -206,25 +191,8 @@ function spawnSouls(count) {
         break;
       }
     }
-
     if (ok) placed.push(pick);
     attempts++;
-  }
-
-  if (placed.length < count) {
-    let attempts2 = 0;
-    while (placed.length < count && attempts2 < 2000 && candidates.length > 0) {
-      const pick = candidates[Math.floor(Math.random() * candidates.length)];
-      let already = false;
-      for (const p of placed) {
-        if (p.c === pick.c && p.r === pick.r) {
-          already = true;
-          break;
-        }
-      }
-      if (!already) placed.push(pick);
-      attempts2++;
-    }
   }
 
   for (const p of placed) {
@@ -236,110 +204,75 @@ function spawnSouls(count) {
 
 function spawnCandles() {
   const candleCount = 3 + Math.floor(Math.random() * 3);
-  const placedCandles = [];
-  const minDistanceBetweenCandles = 200;
-
+  const placed = [];
+  const minDist = 200;
   for (let i = 0; i < candleCount; i++) {
-    let attempts = 0;
-    let placed = false;
-
-    while (attempts < 150 && !placed) {
+    let att = 0,
+      done = false;
+    while (att < 150 && !done) {
       const rx =
         2 + Math.floor(Math.random() * (levelState.currentMapCols - 4));
       const ry =
         2 + Math.floor(Math.random() * (levelState.currentMapRows - 4));
       const x = rx * TILE_SIZE + 24;
       const y = ry * TILE_SIZE + 24;
-
       if (!collidesWithWalls(x - 12, y - 12, 24, 24, levelState.walls)) {
-        let tooClose = false;
-        for (const other of placedCandles) {
-          const dx = other.x - x;
-          const dy = other.y - y;
-          if (Math.sqrt(dx * dx + dy * dy) < minDistanceBetweenCandles) {
-            tooClose = true;
+        let tc = false;
+        for (const o of placed)
+          if (Math.hypot(o.x - x, o.y - y) < minDist) {
+            tc = true;
             break;
           }
-        }
-
-        if (!tooClose) {
-          const newCandle = { x, y, radius: 110, life: 99999, permanent: true };
-          levelState.candles.push(newCandle);
-          placedCandles.push(newCandle);
-          placed = true;
+        if (!tc) {
+          const c = { x, y, radius: 110, life: 99999, permanent: true };
+          levelState.candles.push(c);
+          placed.push(c);
+          done = true;
         }
       }
-      attempts++;
+      att++;
     }
   }
 }
 
 function spawnRockPickups() {
   const placed = [];
-  const minDistance = 100;
-
   for (const candle of levelState.candles) {
     if (Math.random() > 0.6) continue;
-
-    let attempts = 0;
-    let done = false;
-
-    while (attempts < 30 && !done) {
+    let att = 0,
+      done = false;
+    while (att < 30 && !done) {
       const angle = Math.random() * Math.PI * 2;
       const distance = 30 + Math.random() * 50;
       const x = candle.x + Math.cos(angle) * distance;
       const y = candle.y + Math.sin(angle) * distance;
-
       if (!collidesWithWalls(x - 8, y - 8, 16, 16, levelState.walls)) {
-        let tooClose = false;
-        for (const p of placed) {
-          const dx = p.x - x;
-          const dy = p.y - y;
-          if (Math.sqrt(dx * dx + dy * dy) < minDistance) {
-            tooClose = true;
-            break;
-          }
-        }
-
-        const distToPlayer = Math.sqrt(
-          (x - player.x) ** 2 + (y - player.y) ** 2,
-        );
-        if (distToPlayer < 150) tooClose = true;
-
-        if (!tooClose) {
-          const pickup = { x, y, collected: false };
-          levelState.rockPickups.push(pickup);
-          placed.push(pickup);
+        const distToP = Math.hypot(x - player.x, y - player.y);
+        if (distToP > 150) {
+          const p = { x, y, collected: false };
+          levelState.rockPickups.push(p);
+          placed.push(p);
           done = true;
         }
       }
-      attempts++;
+      att++;
     }
   }
-
-  if (levelState.rockPickups.length > 5) {
-    levelState.rockPickups = levelState.rockPickups.slice(0, 5);
-  }
-
   if (levelState.rockPickups.length < 2) {
-    let attempts = 0;
-    while (levelState.rockPickups.length < 2 && attempts < 100) {
+    let att = 0;
+    while (levelState.rockPickups.length < 2 && att < 100) {
       const rx =
         3 + Math.floor(Math.random() * (levelState.currentMapCols - 6));
       const ry =
         3 + Math.floor(Math.random() * (levelState.currentMapRows - 6));
       const x = rx * TILE_SIZE + 24;
       const y = ry * TILE_SIZE + 24;
-
       if (!collidesWithWalls(x - 8, y - 8, 16, 16, levelState.walls)) {
-        const distToPlayer = Math.sqrt(
-          (x - player.x) ** 2 + (y - player.y) ** 2,
-        );
-        if (distToPlayer > 200) {
+        if (Math.hypot(x - player.x, y - player.y) > 200) {
           levelState.rockPickups.push({ x, y, collected: false });
         }
       }
-      attempts++;
+      att++;
     }
   }
 }
@@ -347,70 +280,50 @@ function spawnRockPickups() {
 function spawnCandlePickups() {
   const count = 4 + Math.floor(Math.random() * 3);
   const placed = [];
-  const minDistance = 150;
-
   for (let i = 0; i < count; i++) {
-    let attempts = 0;
-    let done = false;
-
-    while (attempts < 100 && !done) {
+    let att = 0,
+      done = false;
+    while (att < 100 && !done) {
       const rx =
         3 + Math.floor(Math.random() * (levelState.currentMapCols - 6));
       const ry =
         3 + Math.floor(Math.random() * (levelState.currentMapRows - 6));
       const x = rx * TILE_SIZE + 24;
       const y = ry * TILE_SIZE + 24;
-
       if (!collidesWithWalls(x - 8, y - 8, 16, 16, levelState.walls)) {
-        let tooClose = false;
-        for (const p of placed) {
-          const dx = p.x - x;
-          const dy = p.y - y;
-          if (Math.sqrt(dx * dx + dy * dy) < minDistance) {
-            tooClose = true;
+        let tc = false;
+        for (const p of placed)
+          if (Math.hypot(p.x - x, p.y - y) < 150) {
+            tc = true;
             break;
           }
-        }
-
-        const distToPlayer = Math.sqrt(
-          (x - player.x) ** 2 + (y - player.y) ** 2,
-        );
-        if (distToPlayer < 150) tooClose = true;
-
-        if (!tooClose) {
-          const pickup = { x, y, collected: false };
-          levelState.candlePickups.push(pickup);
-          placed.push(pickup);
+        if (Math.hypot(x - player.x, y - player.y) < 150) tc = true;
+        if (!tc) {
+          const p = { x, y, collected: false };
+          levelState.candlePickups.push(p);
+          placed.push(p);
           done = true;
         }
       }
-      attempts++;
+      att++;
     }
   }
 }
 
 export function moveRiftRandomly() {
   if (!levelState.exitRift) return;
-
   const grid = buildGridFromWalls();
   const start = worldToCell(player.x, player.y);
   const reachable = floodFill(grid, start.c, start.r);
-
   const candidates = [];
   for (let r = 2; r < grid.length - 2; r++) {
     for (let c = 2; c < grid[0].length - 2; c++) {
-      if (!reachable[r][c]) continue;
-      if (grid[r][c] !== ".") continue;
-
-      const distToPlayer = Math.abs(c - start.c) + Math.abs(r - start.r);
-      if (distToPlayer < 8) continue;
-
+      if (!reachable[r][c] || grid[r][c] !== ".") continue;
+      if (Math.abs(c - start.c) + Math.abs(r - start.r) < 8) continue;
       candidates.push({ c, r });
     }
   }
-
-  if (candidates.length === 0) return;
-
+  if (!candidates.length) return;
   const pick = candidates[Math.floor(Math.random() * candidates.length)];
   levelState.exitRift.x = pick.c * TILE_SIZE;
   levelState.exitRift.y = pick.r * TILE_SIZE;
@@ -418,43 +331,44 @@ export function moveRiftRandomly() {
 }
 
 function buildGridFromWalls() {
-  const rows = levelState.currentMapRows;
-  const cols = levelState.currentMapCols;
+  const rows = levelState.currentMapRows,
+    cols = levelState.currentMapCols;
   const grid = Array.from({ length: rows }, () => Array(cols).fill("."));
-
   for (const w of levelState.walls) {
-    const c = Math.floor(w.x / TILE_SIZE);
-    const r = Math.floor(w.y / TILE_SIZE);
+    const c = Math.floor(w.x / TILE_SIZE),
+      r = Math.floor(w.y / TILE_SIZE);
     if (grid[r] && grid[r][c] !== undefined) grid[r][c] = "#";
   }
   return grid;
 }
 
 function floodFill(grid, startC, startR) {
-  const rows = grid.length;
-  const cols = grid[0].length;
+  const rows = grid.length,
+    cols = grid[0].length;
   const seen = Array.from({ length: rows }, () => Array(cols).fill(false));
-
   if (grid[startR][startC] === "#") return seen;
-
   const q = [{ c: startC, r: startR }];
   seen[startR][startC] = true;
-
   const dirs = [
     { dc: 1, dr: 0 },
     { dc: -1, dr: 0 },
     { dc: 0, dr: 1 },
     { dc: 0, dr: -1 },
   ];
-
   while (q.length) {
     const cur = q.shift();
     for (const d of dirs) {
-      const nc = cur.c + d.dc;
-      const nr = cur.r + d.dr;
-      if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
-      if (seen[nr][nc]) continue;
-      if (grid[nr][nc] === "#") continue;
+      const nc = cur.c + d.dc,
+        nr = cur.r + d.dr;
+      if (
+        nr < 0 ||
+        nr >= rows ||
+        nc < 0 ||
+        nc >= cols ||
+        seen[nr][nc] ||
+        grid[nr][nc] === "#"
+      )
+        continue;
       seen[nr][nc] = true;
       q.push({ c: nc, r: nr });
     }

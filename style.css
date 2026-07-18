@@ -1160,3 +1160,151 @@ button:hover {
   gap: 8px;
   text-transform: uppercase;
 }
+
+/* ── WARNING SCREEN ── */
+#warning-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: #000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  pointer-events: all;
+}
+#warning-content {
+  text-align: center;
+  color: #fff;
+  max-width: 600px;
+  font-family: var(--font-mono);
+}
+#warning-content h2 {
+  color: #ff1a1a;
+  margin-bottom: 20px;
+  letter-spacing: 4px;
+}
+#warning-content p {
+  color: #aaa;
+  margin-bottom: 15px;
+  line-height: 1.5;
+}
+#accept-warning-button {
+  margin-top: 30px;
+}
+
+/* ── UI UPDATES ── */
+#top-ui-bar {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+#hearts-container {
+  font-size: 20px;
+  display: flex;
+  gap: 5px;
+}
+.heart.empty {
+  filter: grayscale(100%) opacity(0.3);
+}
+#timer-display {
+  color: var(--ghost-white);
+  font-size: 16px;
+  letter-spacing: 2px;
+}
+
+/* ── DIFFICULTY & MENU UPDATES ── */
+#total-deaths-display {
+  color: #ff1a1a;
+  font-size: 12px;
+  letter-spacing: 3px;
+  margin-top: -10px;
+}
+#difficulty-selector {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  color: var(--text-dim);
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+.diff-btn {
+  padding: 6px 12px;
+  font-size: 10px;
+  border-color: #333;
+  color: #666;
+}
+.diff-btn.active {
+  border-color: var(--accent-purple);
+  color: var(--ghost-white);
+  background: rgba(107, 0, 255, 0.2);
+}
+#menu-links {
+  margin-top: 20px;
+  font-size: 12px;
+}
+#menu-links a {
+  color: var(--text-dim);
+  text-decoration: none;
+  transition: 0.3s;
+}
+#menu-links a:hover {
+  color: var(--ghost-white);
+}
+
+/* ── CREDITS ── */
+#credits-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(5, 5, 8, 0.98);
+  z-index: 300;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+#credits-content {
+  text-align: center;
+  color: var(--ghost-white);
+}
+#credits-content p {
+  margin: 15px 0;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+#credits-content strong {
+  color: var(--ghost-white);
+  font-size: 16px;
+  letter-spacing: 2px;
+}
+
+/* ── ACHIEVEMENTS ── */
+#achievement-toast {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  background: rgba(107, 0, 255, 0.9);
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 4px;
+  font-size: 12px;
+  box-shadow: 0 0 15px rgba(107, 0, 255, 0.5);
+  animation: toastIn 0.5s ease forwards;
+}
+@keyframes toastIn {
+  from {
+    transform: translateX(120%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}

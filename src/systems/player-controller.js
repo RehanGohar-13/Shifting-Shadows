@@ -1,5 +1,5 @@
 // ============================================
-// Player Controller — Carry One Item System
+// Player Controller
 // ============================================
 
 import { player } from "../entities/player.js";
@@ -16,18 +16,22 @@ import {
 export const playerEffects = {
   soulFlashTimer: 0,
   rockFlashTimer: 0,
+  hurtFlashTimer: 0,
 };
 
-// Prevent E and F from firing every frame
 let ePressed = false;
 let fPressed = false;
 
 export function updatePlayer(dt, callbacks = {}) {
   const { nextLevel, gameOver } = callbacks;
 
-  let dx = 0;
-  let dy = 0;
+  // Invulnerability countdown
+  if (player.invulnerableTimer > 0) {
+    player.invulnerableTimer -= dt;
+  }
 
+  let dx = 0,
+    dy = 0;
   if (keys["w"] || keys["arrowup"]) dy = -1;
   if (keys["s"] || keys["arrowdown"]) dy = 1;
   if (keys["a"] || keys["arrowleft"]) dx = -1;
@@ -42,9 +46,7 @@ export function updatePlayer(dt, callbacks = {}) {
   player.moving = dx !== 0 || dy !== 0;
   const speed = player.isRunning ? player.runSpeed : player.speed;
 
-  if (dx !== 0 || dy !== 0) {
-    player.direction = { x: dx, y: dy };
-  }
+  if (dx !== 0 || dy !== 0) player.direction = { x: dx, y: dy };
 
   const newX = player.x + dx * speed * dt;
   if (
@@ -55,10 +57,8 @@ export function updatePlayer(dt, callbacks = {}) {
       player.height,
       levelState.walls,
     )
-  ) {
+  )
     player.x = newX;
-  }
-
   const newY = player.y + dy * speed * dt;
   if (
     !collidesWithWalls(
@@ -68,11 +68,10 @@ export function updatePlayer(dt, callbacks = {}) {
       player.height,
       levelState.walls,
     )
-  ) {
+  )
     player.y = newY;
-  }
 
-  // Footsteps
+  // Footsteps + Bloody Footprints
   if (player.moving) {
     player._stepTimer += dt;
     const stepInterval = player.isRunning ? 0.2 : 0.35;
@@ -80,8 +79,19 @@ export function updatePlayer(dt, callbacks = {}) {
       player._stepTimer = 0;
       if (player.isRunning) sound.playRunStep();
       else sound.playFootstep();
+
+      // Drop bloody footprint
+      player.footprints.push({
+        x: player.x + player.width / 2,
+        y: player.y + player.height / 2,
+        alpha: 0.6,
+      });
+      if (player.footprints.length > 30) player.footprints.shift();
     }
   }
+
+  // Fade footprints
+  for (const fp of player.footprints) fp.alpha -= 0.02 * dt;
 
   // Soul trail
   player.trailTimer += dt;
@@ -91,11 +101,10 @@ export function updatePlayer(dt, callbacks = {}) {
     player.trailTimer = 0;
   }
 
-  // Light check
+  // Light + Sanity
   player.inLight = false;
-  if (player.carrying === "candle") {
-    player.inLight = true;
-  } else {
+  if (player.carrying === "candle") player.inLight = true;
+  else {
     for (const candle of levelState.candles) {
       if (distanceBetween(player, candle) < candle.radius) {
         player.inLight = true;
@@ -103,86 +112,72 @@ export function updatePlayer(dt, callbacks = {}) {
       }
     }
   }
-
-  // Sanity
-  if (player.carrying === "candle") {
+  if (player.carrying === "candle")
     player.sanity = Math.min(100, player.sanity + 3 * dt);
-  } else if (!player.inLight) {
-    player.sanity -= 1.8 * dt;
-  } else {
-    player.sanity = Math.min(100, player.sanity + 5 * dt);
-  }
+  else if (!player.inLight) player.sanity -= 1.8 * dt;
+  else player.sanity = Math.min(100, player.sanity + 5 * dt);
 
-  // Corruption
   const distToPhantom = distanceBetween(player, phantom);
-  if (distToPhantom < 150) {
+  if (distToPhantom < 150)
     player.corruption += ((150 - distToPhantom) / 150) * 15 * dt;
-  } else {
-    player.corruption = Math.max(0, player.corruption - 2 * dt);
+  else player.corruption = Math.max(0, player.corruption - 2 * dt);
+
+  // Whispers from bones (random events)
+  for (const bone of levelState.bones) {
+    if (!bone.whispered && distanceBetween(player, bone) < 40) {
+      bone.whispered = true;
+      if (Math.random() < 0.3) sound.playWhisper();
+    }
   }
 
-  // ── PICK UP (only if not carrying anything) ──
+  // Pickups
   if (!player.carrying) {
-    // Soul
     for (const soul of levelState.souls) {
       if (!soul.collected && rectsCollide(player, soul)) {
         soul.collected = true;
         player.carrying = "soul";
         playerEffects.soulFlashTimer = 0.3;
         sound.playSoulCollect();
-
-        if (levelState.exitRift) {
-          levelState.exitRift.active = true;
-        }
+        if (levelState.exitRift) levelState.exitRift.active = true;
         break;
       }
     }
-
-    // Rock
     if (!player.carrying) {
-      for (const pickup of levelState.rockPickups) {
+      for (const p of levelState.rockPickups) {
         if (
-          !pickup.collected &&
+          !p.collected &&
           rectsCollide(player, {
-            x: pickup.x - 8,
-            y: pickup.y - 8,
+            x: p.x - 8,
+            y: p.y - 8,
             width: 16,
             height: 16,
           })
         ) {
-          pickup.collected = true;
+          p.collected = true;
           player.carrying = "rock";
-          playerEffects.rockFlashTimer = 0.2;
           sound.playRockPickup();
           break;
         }
       }
     }
-
-    // Candle
     if (!player.carrying) {
-      for (const pickup of levelState.candlePickups) {
+      for (const p of levelState.candlePickups) {
         if (
-          !pickup.collected &&
+          !p.collected &&
           rectsCollide(player, {
-            x: pickup.x - 8,
-            y: pickup.y - 8,
+            x: p.x - 8,
+            y: p.y - 8,
             width: 16,
             height: 16,
           })
         ) {
-          pickup.collected = true;
+          p.collected = true;
           player.carrying = "candle";
-          playerEffects.rockFlashTimer = 0.2;
           sound.playCandlePlace();
-
-          // Remove associated light if this was placed
-          if (pickup.wasPlaced) {
+          if (p.wasPlaced) {
             for (let i = levelState.candles.length - 1; i >= 0; i--) {
               const c = levelState.candles[i];
-              const dx = c.x - pickup.x;
-              const dy = c.y - pickup.y;
-              if (Math.sqrt(dx * dx + dy * dy) < 5) {
+              if (Math.hypot(c.x - p.x, c.y - p.y) < 5) {
                 levelState.candles.splice(i, 1);
                 break;
               }
@@ -194,7 +189,7 @@ export function updatePlayer(dt, callbacks = {}) {
     }
   }
 
-  // ── DELIVER SOUL TO RIFT ──
+  // Deliver soul
   if (
     player.carrying === "soul" &&
     levelState.exitRift &&
@@ -205,19 +200,16 @@ export function updatePlayer(dt, callbacks = {}) {
     player.soulsDelivered++;
     playerEffects.soulFlashTimer = 0.5;
     sound.playRiftOpen();
-
     if (player.soulsDelivered >= levelState.soulsNeeded) {
       levelState.exitRift.readyToEscape = true;
       levelState.exitRift.justBecameReady = true;
       moveRiftRandomly();
       levelState.exitRift.active = true;
-    } else {
-      moveRiftRandomly();
-    }
+    } else moveRiftRandomly();
     return;
   }
 
-  // ── FINAL ESCAPE ──
+  // Escape
   if (
     levelState.exitRift &&
     levelState.exitRift.readyToEscape &&
@@ -229,8 +221,6 @@ export function updatePlayer(dt, callbacks = {}) {
     levelState.exitRift.triggered = true;
     if (nextLevel) nextLevel();
   }
-
-  // Reset justBecameReady when player walks off the rift
   if (
     levelState.exitRift &&
     levelState.exitRift.justBecameReady &&
@@ -239,10 +229,9 @@ export function updatePlayer(dt, callbacks = {}) {
     levelState.exitRift.justBecameReady = false;
   }
 
-  // ── E: Drop / Place (only on key press, not hold) ──
+  // E - Drop/Place
   if (keys["e"] && !ePressed) {
     ePressed = true;
-
     if (player.carrying === "candle") {
       sound.playCandlePlace();
       levelState.candles.push({
@@ -279,37 +268,51 @@ export function updatePlayer(dt, callbacks = {}) {
   }
   if (!keys["e"]) ePressed = false;
 
-  // ── F: Throw rock ──
+  // F - Throw
   if (keys["f"] && !fPressed && player.carrying === "rock") {
     fPressed = true;
     player.carrying = null;
     sound.playRockThrow();
-    const throwDist = 200;
     setTimeout(() => sound.playRockImpact(), 300);
     levelState.rocks.push({
-      x: player.x + player.direction.x * throwDist,
-      y: player.y + player.direction.y * throwDist,
+      x: player.x + player.direction.x * 200,
+      y: player.y + player.direction.y * 200,
       timer: 2,
       noiseRadius: 220,
     });
   }
   if (!keys["f"]) fPressed = false;
 
-  // Death
+  // ── DAMAGE SYSTEM ──
+  function takeDamage(reason) {
+    if (player.invulnerableTimer > 0) return;
+    player.lives--;
+    player.invulnerableTimer = 2.0; // 2s of I-frames
+    playerEffects.hurtFlashTimer = 0.5;
+    sound.playJumpscare();
+
+    if (player.lives <= 0) {
+      if (gameOver) gameOver(reason);
+    } else {
+      // Update hearts UI
+      updateHeartsUI();
+      // Push phantom away
+      const dx = phantom.x - player.x;
+      const dy = phantom.y - player.y;
+      const dist = Math.hypot(dx, dy) || 1;
+      phantom.x += (dx / dist) * 100;
+      phantom.y += (dy / dist) * 100;
+    }
+  }
+
   if (player.sanity <= 0 && gameOver) gameOver("Your mind faded into nothing.");
   if (player.corruption >= 100 && gameOver) gameOver("You became one of them.");
-  if (rectsCollide(player, phantom) && gameOver) {
-    sound.playJumpscare();
-    gameOver("The shadow consumed you.");
-  }
+  if (rectsCollide(player, phantom)) takeDamage("The shadow consumed you.");
+  const sp = getSecondPhantom();
+  if (sp && rectsCollide(player, sp))
+    takeDamage("A second shadow consumed you.");
 
-  const secondPhantom = getSecondPhantom();
-  if (secondPhantom && rectsCollide(player, secondPhantom) && gameOver) {
-    sound.playJumpscare();
-    gameOver("A second shadow consumed you.");
-  }
-
-  // Update objects
+  // Cleanup
   for (let i = levelState.candles.length - 1; i >= 0; i--) {
     if (!levelState.candles[i].permanent) levelState.candles[i].life -= dt;
     if (levelState.candles[i].life <= 0) levelState.candles.splice(i, 1);
@@ -324,12 +327,20 @@ export function updatePlayer(dt, callbacks = {}) {
     Math.max(0, player.sanity) + "%";
   document.getElementById("corruption-bar").style.width =
     Math.min(100, player.corruption) + "%";
-
   document.getElementById("souls-text").textContent =
     player.soulsDelivered + " / " + levelState.soulsNeeded;
-
   const carryEl = document.getElementById("carry-text");
-  if (carryEl) {
-    carryEl.textContent = player.carrying || "empty";
+  if (carryEl) carryEl.textContent = player.carrying || "empty";
+}
+
+export function updateHeartsUI() {
+  const container = document.getElementById("hearts-container");
+  if (!container) return;
+  container.innerHTML = "";
+  for (let i = 0; i < player.maxLives; i++) {
+    const h = document.createElement("span");
+    h.className = "heart" + (i >= player.lives ? " empty" : "");
+    h.textContent = i < player.lives ? "❤️" : "🖤";
+    container.appendChild(h);
   }
 }

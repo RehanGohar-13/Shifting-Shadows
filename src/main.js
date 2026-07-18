@@ -534,43 +534,33 @@ function setupSoundToggles() {
   const sfxOn = localStorage.getItem("ss_sfx") !== "false";
   sound.musicEnabled = musicOn;
   sound.sfxEnabled = sfxOn;
-  updateTV("menu-music-toggle", musicOn, "🎵 MUSIC");
-  updateTV("menu-sfx-toggle", sfxOn, "🔊 SFX");
-  updateTV("pause-music-toggle", musicOn, "🎵 MUSIC");
-  updateTV("pause-sfx-toggle", sfxOn, "🔊 SFX");
+  updateTV("menu-music-toggle", musicOn);
+  updateTV("menu-sfx-toggle", sfxOn);
+  updateTV("pause-music-toggle", musicOn);
+  updateTV("pause-sfx-toggle", sfxOn);
 }
-function updateTV(id, on, l) {
+
+function updateTV(id, on) {
   const b = document.getElementById(id);
   if (!b) return;
-  b.setAttribute("data-on", on);
-  b.textContent = l + (on ? " ON" : " OFF");
+  b.setAttribute("data-on", on ? "true" : "false");
 }
-function toggleMusic() {
-  const n = !sound.musicEnabled;
-  sound.setMusicEnabled?.(n) || (sound.musicEnabled = n);
-  localStorage.setItem("ss_music", n);
-  updateTV("menu-music-toggle", n, "🎵 MUSIC");
-  updateTV("pause-music-toggle", n, "🎵 MUSIC");
-}
-function toggleSfx() {
-  const n = !sound.sfxEnabled;
-  sound.setSfxEnabled?.(n) || (sound.sfxEnabled = n);
-  localStorage.setItem("ss_sfx", n);
-  updateTV("menu-sfx-toggle", n, "🔊 SFX");
-  updateTV("pause-sfx-toggle", n, "🔊 SFX");
-}
-document
-  .getElementById("menu-music-toggle")
-  .addEventListener("click", toggleMusic);
-document.getElementById("menu-sfx-toggle").addEventListener("click", toggleSfx);
-document
-  .getElementById("pause-music-toggle")
-  .addEventListener("click", toggleMusic);
-document
-  .getElementById("pause-sfx-toggle")
-  .addEventListener("click", toggleSfx);
 
-setupSoundToggles();
+function toggleMusic() {
+  if (!sound.initialized) sound.init();
+  const n = !sound.musicEnabled;
+  sound.setMusicEnabled(n);
+  updateTV("menu-music-toggle", n);
+  updateTV("pause-music-toggle", n);
+}
+
+function toggleSfx() {
+  if (!sound.initialized) sound.init();
+  const n = !sound.sfxEnabled;
+  sound.setSfxEnabled(n);
+  updateTV("menu-sfx-toggle", n);
+  updateTV("pause-sfx-toggle", n);
+}
 
 // START
 sprites.load().then(() => {

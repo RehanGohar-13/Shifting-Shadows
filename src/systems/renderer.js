@@ -144,17 +144,16 @@ function drawRift(ctx, gameTime) {
   const rift = levelState.exitRift;
   if (!rift || !sprites.sprites.rift) return;
 
-  const readyToEscape = player.soulsDelivered >= levelState.soulsNeeded;
+  const readyToEscape = rift.readyToEscape === true;
 
   if (readyToEscape) {
-    // GREEN GLOW — ready to escape!
-    const riftPulse = 1.3 + Math.sin(gameTime * 4) * 0.15;
+    const riftPulse = 1.4 + Math.sin(gameTime * 5) * 0.2;
     const riftSize = TILE_SIZE * riftPulse;
     const riftOffset = (riftSize - TILE_SIZE) / 2;
 
     ctx.save();
     ctx.shadowColor = "#00ffaa";
-    ctx.shadowBlur = 30;
+    ctx.shadowBlur = 40;
     ctx.drawImage(
       sprites.sprites.rift,
       rift.x - riftOffset,
@@ -252,19 +251,30 @@ function drawPlayer(ctx) {
 
   ctx.restore();
 
-  if (player.carryingSoul && sprites.sprites.soul) {
-    const soulBob = Math.sin(Date.now() / 200) * 3;
-    ctx.save();
-    ctx.shadowColor = "#c8d8ff";
-    ctx.shadowBlur = 15;
-    ctx.drawImage(
-      sprites.sprites.soul,
-      player.x + 5,
-      player.y - 20 + soulBob,
-      20,
-      20,
-    );
-    ctx.restore();
+  // Draw carried item above player
+  if (player.carrying) {
+    const itemBob = Math.sin(Date.now() / 200) * 3;
+    let itemSprite = null;
+    let glowColor = "#c8d8ff";
+
+    if (player.carrying === "soul") {
+      itemSprite = sprites.sprites.soul;
+      glowColor = "#c8d8ff";
+    } else if (player.carrying === "candle") {
+      itemSprite = sprites.sprites.candle;
+      glowColor = "#ff8800";
+    } else if (player.carrying === "rock") {
+      itemSprite = sprites.sprites.rock;
+      glowColor = "#775533";
+    }
+
+    if (itemSprite) {
+      ctx.save();
+      ctx.shadowColor = glowColor;
+      ctx.shadowBlur = 15;
+      ctx.drawImage(itemSprite, player.x + 5, player.y - 20 + itemBob, 20, 20);
+      ctx.restore();
+    }
   }
 
   if (player.isRunning) {
@@ -301,15 +311,19 @@ function drawPhantom(ctx) {
 
   const eyeGlow = 0.7 + Math.sin(phantom.pulseTimer * 4) * 0.3;
   const eyeSize = phantom.state === "CHASE" ? 2.5 : 2;
+
+  // Eyes positioned relative to sprite top
+  const eyeY = phantom.y + 12 + hoverY;
+
   ctx.save();
   ctx.fillStyle = `rgba(255, 0, 0, ${eyeGlow})`;
   ctx.shadowColor = "#ff0000";
   ctx.shadowBlur = 8;
   ctx.beginPath();
-  ctx.arc(pcenterX - 6, pcenterY - 8 + hoverY, eyeSize, 0, Math.PI * 2);
+  ctx.arc(pcenterX - 8, eyeY, eyeSize, 0, Math.PI * 2);
   ctx.fill();
   ctx.beginPath();
-  ctx.arc(pcenterX + 6, pcenterY - 8 + hoverY, eyeSize, 0, Math.PI * 2);
+  ctx.arc(pcenterX + 8, eyeY, eyeSize, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
@@ -339,15 +353,17 @@ function drawSecondPhantom(ctx) {
   }
 
   const spEyeGlow = 0.6 + Math.sin(sp.pulseTimer * 4) * 0.3;
+  const spEyeY = sp.y + 12 + hoverY;
+
   ctx.save();
   ctx.fillStyle = `rgba(200, 0, 255, ${spEyeGlow})`;
   ctx.shadowColor = "#cc00ff";
   ctx.shadowBlur = 6;
   ctx.beginPath();
-  ctx.arc(spCX - 6, spCY - 8 + hoverY, 2, 0, Math.PI * 2);
+  ctx.arc(spCX - 8, spEyeY, 2, 0, Math.PI * 2);
   ctx.fill();
   ctx.beginPath();
-  ctx.arc(spCX + 6, spCY - 8 + hoverY, 2, 0, Math.PI * 2);
+  ctx.arc(spCX + 8, spEyeY, 2, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }

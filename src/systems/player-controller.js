@@ -1,5 +1,5 @@
 // ============================================
-// Player Controller
+// Player Controller — Carry One Item System
 // ============================================
 
 import { player } from "../entities/player.js";
@@ -87,17 +87,23 @@ export function updatePlayer(dt, callbacks = {}) {
     player.trailTimer = 0;
   }
 
-  // Light check
+  // Light check — carrying candle = always in light
   player.inLight = false;
-  for (const candle of levelState.candles) {
-    if (distanceBetween(player, candle) < candle.radius) {
-      player.inLight = true;
-      break;
+  if (player.carrying === "candle") {
+    player.inLight = true;
+  } else {
+    for (const candle of levelState.candles) {
+      if (distanceBetween(player, candle) < candle.radius) {
+        player.inLight = true;
+        break;
+      }
     }
   }
 
   // Sanity
-  if (!player.inLight) {
+  if (player.carrying === "candle") {
+    player.sanity = Math.min(100, player.sanity + 3 * dt);
+  } else if (!player.inLight) {
     player.sanity -= 1.8 * dt;
   } else {
     player.sanity = Math.min(100, player.sanity + 5 * dt);
@@ -111,12 +117,13 @@ export function updatePlayer(dt, callbacks = {}) {
     player.corruption = Math.max(0, player.corruption - 2 * dt);
   }
 
-  // Collect souls (one at a time)
-  if (!player.carryingSoul) {
+  // ── PICK UP ITEMS (only if not carrying anything) ──
+  if (!player.carrying) {
+    // Pick up soul
     for (const soul of levelState.souls) {
       if (!soul.collected && rectsCollide(player, soul)) {
         soul.collected = true;
-        player.carryingSoul = true;
+        player.carrying = "soul";
         playerEffects.soulFlashTimer = 0.3;
         sound.playSoulCollect();
 
@@ -126,83 +133,122 @@ export function updatePlayer(dt, callbacks = {}) {
         break;
       }
     }
+
+    // Pick up rock
+    if (!player.carrying) {
+      for (const pickup of levelState.rockPickups) {
+        if (
+          !pickup.collected &&
+          rectsCollide(player, {
+            x: pickup.x - 8,
+            y: pickup.y - 8,
+            width: 16,
+            height: 16,
+          })
+        ) {
+          pickup.collected = true;
+          player.carrying = "rock";
+          playerEffects.rockFlashTimer = 0.2;
+          sound.playRockPickup();
+          break;
+        }
+      }
+    }
+
+    // Pick up candle
+    if (!player.carrying) {
+      for (const pickup of levelState.candlePickups) {
+        if (
+          !pickup.collected &&
+          rectsCollide(player, {
+            x: pickup.x - 8,
+            y: pickup.y - 8,
+            width: 16,
+            height: 16,
+          })
+        ) {
+          pickup.collected = true;
+          player.carrying = "candle";
+          playerEffects.rockFlashTimer = 0.2;
+          sound.playCandlePlace();
+          break;
+        }
+      }
+    }
   }
 
-  // Deliver soul to rift
+  // ── DELIVER SOUL TO RIFT ──
   if (
-    player.carryingSoul &&
+    player.carrying === "soul" &&
     levelState.exitRift &&
     rectsCollide(player, levelState.exitRift)
   ) {
-    player.carryingSoul = false;
+    player.carrying = null;
     player.soulsDelivered++;
     playerEffects.soulFlashTimer = 0.5;
     sound.playRiftOpen();
 
     if (player.soulsDelivered >= levelState.soulsNeeded) {
-      if (!levelState.exitRift.triggered) {
-        levelState.exitRift.triggered = true;
-        if (nextLevel) nextLevel();
+      // Final challenge: rift moves ONE more time
+      if (!levelState.exitRift.readyToEscape) {
+        levelState.exitRift.readyToEscape = true;
+        moveRiftRandomly();
+        levelState.exitRift.active = true;
       }
     } else {
       moveRiftRandomly();
     }
   }
 
-  // Rock pickup
-  for (const pickup of levelState.rockPickups) {
-    if (
-      !pickup.collected &&
-      rectsCollide(player, {
-        x: pickup.x - 8,
-        y: pickup.y - 8,
-        width: 16,
-        height: 16,
-      })
-    ) {
-      pickup.collected = true;
-      player.rocks++;
-      playerEffects.rockFlashTimer = 0.2;
-      sound.playRockPickup();
-    }
+  // ── FINAL ESCAPE (walk into green rift while empty-handed) ──
+  if (
+    levelState.exitRift &&
+    levelState.exitRift.readyToEscape &&
+    !player.carrying &&
+    !levelState.exitRift.triggered &&
+    rectsCollide(player, levelState.exitRift)
+  ) {
+    levelState.exitRift.triggered = true;
+    if (nextLevel) nextLevel();
   }
 
-  // Candle pickup
-  for (const pickup of levelState.candlePickups) {
-    if (
-      !pickup.collected &&
-      rectsCollide(player, {
-        x: pickup.x - 8,
-        y: pickup.y - 8,
-        width: 16,
-        height: 16,
-      })
-    ) {
-      pickup.collected = true;
-      player.candles++;
-      playerEffects.rockFlashTimer = 0.2;
-      sound.playCandlePlace();
-    }
-  }
-
-  // Place candle
-  if (keys["e"] && player.candles > 0) {
+  // ── E: Drop / Place ──
+  if (keys["e"]) {
     keys["e"] = false;
-    player.candles--;
-    sound.playCandlePlace();
-    levelState.candles.push({
-      x: player.x + player.width / 2,
-      y: player.y + player.height / 2,
-      radius: 100,
-      life: 30,
-      permanent: false,
-    });
+
+    if (player.carrying === "candle") {
+      sound.playCandlePlace();
+      levelState.candles.push({
+        x: player.x + player.width / 2,
+        y: player.y + player.height / 2,
+        radius: 100,
+        life: 30,
+        permanent: false,
+      });
+      player.carrying = null;
+    } else if (player.carrying === "rock") {
+      levelState.rockPickups.push({
+        x: player.x + player.width / 2,
+        y: player.y + player.height / 2,
+        collected: false,
+      });
+      player.carrying = null;
+    } else if (player.carrying === "soul") {
+      levelState.souls.push({
+        x: player.x + 12,
+        y: player.y + 12,
+        width: 24,
+        height: 24,
+        collected: false,
+      });
+      player.carrying = null;
+    }
   }
 
-  // Throw rock
-  if (keys["f"] && player.rocks > 0) {
+  // ── F: Throw rock ──
+  if (keys["f"] && player.carrying === "rock") {
     keys["f"] = false;
-    player.rocks--;
+    player.carrying = null;
     sound.playRockThrow();
     const throwDist = 200;
     setTimeout(() => sound.playRockImpact(), 300);
@@ -243,8 +289,14 @@ export function updatePlayer(dt, callbacks = {}) {
     Math.max(0, player.sanity) + "%";
   document.getElementById("corruption-bar").style.width =
     Math.min(100, player.corruption) + "%";
-  const carryText = player.carryingSoul ? " [+1]" : "";
+
+  let carryText = "";
+  if (player.carrying === "soul") carryText = " [SOUL]";
+  else if (player.carrying === "candle") carryText = " [CANDLE]";
+  else if (player.carrying === "rock") carryText = " [ROCK]";
+
   document.getElementById("souls-text").textContent =
     player.soulsDelivered + " / " + levelState.soulsNeeded + carryText;
-  document.getElementById("candles-text").textContent = player.candles;
+  document.getElementById("candles-text").textContent =
+    player.carrying || "nothing";
 }

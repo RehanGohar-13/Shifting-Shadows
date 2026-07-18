@@ -15,13 +15,13 @@ export const player = {
   inLight: false,
   sanity: 100,
   corruption: 0,
-  souls: 0,
+
   soulsDelivered: 0,
-  carryingSoul: false,
-  candles: 0,
-  rocks: 0,
+  carrying: null,
+
   soulTrail: [],
   trailTimer: 0,
+
   moving: false,
   direction: { x: 0, y: 0 },
   _stepTimer: 0,
@@ -30,11 +30,8 @@ export const player = {
   reset() {
     this.sanity = 100;
     this.corruption = 0;
-    this.souls = 0;
     this.soulsDelivered = 0;
-    this.carryingSoul = false;
-    this.candles = 0;
-    this.rocks = 0;
+    this.carrying = null;
     this.soulTrail = [];
     this.trailTimer = 0;
     this.moving = false;

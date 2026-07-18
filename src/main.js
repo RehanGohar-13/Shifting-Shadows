@@ -493,7 +493,7 @@ const tutorialHints = {
   },
 };
 
-function showHint(text, duration = 4) {
+function showHint(text, duration = 2.5) {
   const hint = document.createElement("div");
   hint.style.cssText = `
     position: absolute;
@@ -530,7 +530,7 @@ function resetTutorial() {
 function updateTutorial() {
   if (state.currentMode !== "story") return;
 
-  // Level 1: Movement + soul pickup + delivery
+  // Level 1
   if (state.currentLevel === 0) {
     if (
       !tutorialHints.shown.movement &&
@@ -538,22 +538,18 @@ function updateTutorial() {
       state.gameTime < 2
     ) {
       tutorialHints.shown.movement = true;
-      showHint("WASD to move", 4);
+      showHint("WASD to move", 2.5);
     }
 
-    if (
-      !tutorialHints.shown.run &&
-      state.gameTime > 10 &&
-      state.gameTime < 11
-    ) {
+    if (!tutorialHints.shown.run && state.gameTime > 8 && state.gameTime < 9) {
       tutorialHints.shown.run = true;
       showHint(
         'SHIFT to run<br><span style="color:#ff5566;font-size:11px">but running makes noise</span>',
-        4,
+        2.5,
       );
     }
 
-    if (!tutorialHints.shown.soulPickup && !player.carryingSoul) {
+    if (!tutorialHints.shown.soulPickup && !player.carrying) {
       for (const soul of levelState.souls) {
         if (!soul.collected) {
           const dx = soul.x - player.x;
@@ -561,8 +557,8 @@ function updateTutorial() {
           if (Math.sqrt(dx * dx + dy * dy) < 100) {
             tutorialHints.shown.soulPickup = true;
             showHint(
-              'Collect the soul<br><span style="color:#aaccff;font-size:11px">carry it to the rift</span>',
-              4,
+              'Pick up the soul<br><span style="color:#aaccff;font-size:11px">carry it to the rift</span>',
+              2.5,
             );
             break;
           }
@@ -570,16 +566,16 @@ function updateTutorial() {
       }
     }
 
-    if (!tutorialHints.shown.delivery && player.carryingSoul) {
+    if (!tutorialHints.shown.delivery && player.carrying === "soul") {
       tutorialHints.shown.delivery = true;
       showHint(
         'Find the RIFT<br><span style="color:#00ffaa;font-size:11px">deliver the soul</span>',
-        4,
+        2.5,
       );
     }
   }
 
-  // Level 2: Candles
+  // Level 2 — Candles
   if (
     state.currentLevel === 1 &&
     !tutorialHints.shown.candle &&
@@ -588,12 +584,12 @@ function updateTutorial() {
   ) {
     tutorialHints.shown.candle = true;
     showHint(
-      'Press E to place a candle<br><span style="color:#ff8800;font-size:11px">light restores sanity</span>',
-      4,
+      'Pick up torches for light<br><span style="color:#ff8800;font-size:11px">E to drop or place</span>',
+      2.5,
     );
   }
 
-  // Level 3: Rocks
+  // Level 3 — Rocks
   if (
     state.currentLevel === 2 &&
     !tutorialHints.shown.rock &&
@@ -602,8 +598,8 @@ function updateTutorial() {
   ) {
     tutorialHints.shown.rock = true;
     showHint(
-      'Press F to throw a rock<br><span style="color:#ffaa00;font-size:11px">distract the phantom</span>',
-      4,
+      'Pick up rocks<br><span style="color:#ffaa00;font-size:11px">F to throw, E to drop</span>',
+      2.5,
     );
   }
 }

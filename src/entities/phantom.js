@@ -7,8 +7,8 @@ const TILE_SIZE = 48;
 export const phantom = {
   x: 0,
   y: 0,
-  width: TILE_SIZE - 12,
-  height: TILE_SIZE - 12,
+  width: TILE_SIZE - 24,
+  height: TILE_SIZE - 24,
   speed: 55,
   state: "IDLE",
   target: null,

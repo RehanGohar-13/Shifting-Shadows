@@ -1620,3 +1620,55 @@ button:hover {
   opacity: 0;
   animation: storyPromptIn 1s ease 3.5s forwards;
 }
+
+/* ── METERS (SANITY / CORRUPTION) ── */
+#meters {
+  position: absolute;
+  top: 60px;
+  left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 15;
+  pointer-events: none;
+}
+
+.meter-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-dim);
+  font-size: 10px;
+  letter-spacing: 2px;
+}
+
+.meter-label {
+  min-width: 80px;
+  text-align: right;
+  font-family: var(--font-mono);
+}
+
+.meter-bar {
+  width: 180px;
+  height: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(107, 0, 255, 0.4);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.meter-fill {
+  height: 100%;
+  transition: width 0.2s ease;
+  border-radius: 4px;
+}
+
+.meter-fill.sanity {
+  background: linear-gradient(to right, #4488ff, #66aaff);
+  box-shadow: 0 0 6px rgba(68, 136, 255, 0.6);
+}
+
+.meter-fill.corruption {
+  background: linear-gradient(to right, #440066, #aa00cc);
+  box-shadow: 0 0 6px rgba(170, 0, 204, 0.6);
+}

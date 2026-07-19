@@ -336,11 +336,31 @@ export function updatePlayer(dt, callbacks = {}) {
       if (gameOver) gameOver(reason);
     } else {
       updateHeartsUI();
+      // Smart knockback — try positions until we find a free spot
       const dx = phantom.x - player.x;
       const dy = phantom.y - player.y;
       const dist = Math.hypot(dx, dy) || 1;
-      phantom.x += (dx / dist) * 100;
-      phantom.y += (dy / dist) * 100;
+      const nx = dx / dist;
+      const ny = dy / dist;
+
+      // Try knockback distances, use the biggest that doesn't hit a wall
+      for (let knockDist = 100; knockDist >= 20; knockDist -= 10) {
+        const testX = phantom.x + nx * knockDist;
+        const testY = phantom.y + ny * knockDist;
+        if (
+          !collidesWithWalls(
+            testX,
+            testY,
+            phantom.width,
+            phantom.height,
+            levelState.walls,
+          )
+        ) {
+          phantom.x = testX;
+          phantom.y = testY;
+          break;
+        }
+      }
     }
   }
 

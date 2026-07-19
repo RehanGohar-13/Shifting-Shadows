@@ -149,8 +149,20 @@ function drawBreathingEffect(ctx, canvas, gameTime) {
 
 function drawFloor(ctx) {
   if (!sprites.sprites.floor) return;
-  for (let r = 0; r < levelState.currentMapRows; r++)
-    for (let c = 0; c < levelState.currentMapCols; c++)
+
+  const camL = Math.max(0, Math.floor((camera.x - 50) / TILE_SIZE));
+  const camR = Math.min(
+    levelState.currentMapCols,
+    Math.ceil((camera.x + 1200 + 50) / TILE_SIZE),
+  );
+  const camT = Math.max(0, Math.floor((camera.y - 50) / TILE_SIZE));
+  const camB = Math.min(
+    levelState.currentMapRows,
+    Math.ceil((camera.y + 800 + 50) / TILE_SIZE),
+  );
+
+  for (let r = camT; r < camB; r++) {
+    for (let c = camL; c < camR; c++) {
       ctx.drawImage(
         sprites.sprites.floor,
         c * TILE_SIZE,
@@ -158,17 +170,28 @@ function drawFloor(ctx) {
         TILE_SIZE,
         TILE_SIZE,
       );
+    }
+  }
   ctx.fillStyle = "rgba(10, 0, 20, 0.75)";
   ctx.fillRect(
-    0,
-    0,
-    levelState.currentMapCols * TILE_SIZE,
-    levelState.currentMapRows * TILE_SIZE,
+    camL * TILE_SIZE,
+    camT * TILE_SIZE,
+    (camR - camL) * TILE_SIZE,
+    (camB - camT) * TILE_SIZE,
   );
 }
 
 function drawWalls(ctx) {
+  const camL = camera.x - 50;
+  const camR = camera.x + 1200 + 50;
+  const camT = camera.y - 50;
+  const camB = camera.y + 800 + 50;
+
   for (const w of levelState.walls) {
+    // Skip walls outside camera view
+    if (w.x + TILE_SIZE < camL || w.x > camR) continue;
+    if (w.y + TILE_SIZE < camT || w.y > camB) continue;
+
     if (sprites.sprites.wall) {
       ctx.drawImage(sprites.sprites.wall, w.x, w.y, TILE_SIZE, TILE_SIZE);
       ctx.fillStyle = "rgba(20, 0, 30, 0.3)";

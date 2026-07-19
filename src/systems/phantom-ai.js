@@ -56,7 +56,6 @@ export function updatePhantom(dt) {
       break;
 
     case "CHASE": {
-      // Granny-style: aggressive chase, but gives up quickly when LOS lost
       const chaseSpeed = Math.min(
         2.0,
         1.3 + phantomAI.accelerationTimer * 0.08,
@@ -66,10 +65,10 @@ export function updatePhantom(dt) {
 
       if (!canDetectPlayer()) {
         phantomAI.giveUpTimer += dt;
-        // GRANNY-STYLE: forgets fast (1 second no LOS = give up)
-        if (phantomAI.giveUpTimer > 1.0) {
+        // Longer give-up time (was too fast before)
+        if (phantomAI.giveUpTimer > 2.5) {
           phantom.state = "LOST";
-          phantomAI.lostTimer = 2.5;
+          phantomAI.lostTimer = 3;
           phantomAI.accelerationTimer = 0;
           phantomAI.giveUpTimer = 0;
         }
@@ -77,8 +76,7 @@ export function updatePhantom(dt) {
         phantomAI.giveUpTimer = 0;
       }
 
-      // Also give up if very far
-      if (distanceBetween(phantom, player) > 400) {
+      if (distanceBetween(phantom, player) > 500) {
         phantom.state = "LOST";
         phantomAI.lostTimer = 2;
         phantomAI.accelerationTimer = 0;
@@ -305,13 +303,16 @@ function canDetectPlayer() {
   const dist = distanceBetween(phantom, player);
   const los = hasLineOfSight(phantom, player, levelState.walls);
 
-  // Physical proximity — always
+  // Always detect if VERY close (regardless of walls)
   if (dist < 60) return true;
+
+  // Close + LOS = detected
+  if (dist < 150 && los) return true;
 
   // Hearing running (needs LOS OR very close)
   if (phantom.canSense && player.isRunning) {
-    if (dist < 100) return true; // very close = always hears
-    if (los && dist < 280) return true; // needs LOS
+    if (dist < 100) return true;
+    if (los && dist < 280) return true;
   }
 
   // Sight (requires LOS + light)
@@ -319,8 +320,8 @@ function canDetectPlayer() {
     return true;
   }
 
-  // Trace (follows trail, doesn't need LOS)
-  if (phantom.canTrace && player.soulTrail.length > 3) {
+  // Trace
+  if (phantom.canTrace && player.soulTrail.length > 5) {
     if (distanceBetween(phantom, player.soulTrail[0]) < 160) return true;
   }
 

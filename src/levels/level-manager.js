@@ -21,12 +21,22 @@ export const levelState = {
   rocks: [],
   rockPickups: [],
   candlePickups: [],
-  bones: [],
+  decorations: [], // barrels, crates, rats, bats, spiders
   exitRift: null,
   soulsNeeded: 0,
   currentMapCols: 24,
   currentMapRows: 18,
 };
+
+// Backwards compat — some old files might still call it "bones"
+Object.defineProperty(levelState, "bones", {
+  get() {
+    return this.decorations;
+  },
+  set(v) {
+    this.decorations = v;
+  },
+});
 
 export function loadLevel(level) {
   levelState.walls = [];
@@ -35,7 +45,7 @@ export function loadLevel(level) {
   levelState.rocks = [];
   levelState.rockPickups = [];
   levelState.candlePickups = [];
-  levelState.bones = [];
+  levelState.decorations = [];
   levelState.exitRift = null;
   levelState.soulsNeeded = level.soulsNeeded;
   clearSecondPhantom();
@@ -95,7 +105,7 @@ export function loadLevel(level) {
   spawnCandles();
   spawnRockPickups();
   spawnCandlePickups();
-  spawnBones();
+  spawnDecorations();
 
   phantom.state = "IDLE";
   phantomAI.lastKnownPlayer = null;
@@ -121,27 +131,77 @@ export function loadLevel(level) {
   camera.snap();
 }
 
-function spawnBones() {
-  // Scatter skulls on floor for atmosphere
-  const boneCount = 3 + Math.floor(Math.random() * 4);
-  for (let i = 0; i < boneCount; i++) {
+function spawnDecorations() {
+  // Barrels and crates against walls
+  const wallDecorCount = 5 + Math.floor(Math.random() * 6);
+  for (let i = 0; i < wallDecorCount; i++) {
     let attempts = 0;
     while (attempts < 50) {
       const rx =
         2 + Math.floor(Math.random() * (levelState.currentMapCols - 4));
       const ry =
         2 + Math.floor(Math.random() * (levelState.currentMapRows - 4));
-      const x = rx * TILE_SIZE + Math.random() * 20 - 10;
-      const y = ry * TILE_SIZE + Math.random() * 20 - 10;
+      const x = rx * TILE_SIZE + 24;
+      const y = ry * TILE_SIZE + 24;
 
-      if (!collidesWithWalls(x, y, 16, 16, levelState.walls)) {
-        levelState.bones.push({
-          x,
-          y,
-          rotation: Math.random() * Math.PI * 2,
-          whispered: false, // For random whisper events
-        });
-        break;
+      if (!collidesWithWalls(x - 12, y - 12, 24, 24, levelState.walls)) {
+        // Check if adjacent to wall (looks better)
+        const hasWallNeighbor =
+          collidesWithWalls(x - TILE_SIZE, y, 12, 12, levelState.walls) ||
+          collidesWithWalls(x + TILE_SIZE, y, 12, 12, levelState.walls) ||
+          collidesWithWalls(x, y - TILE_SIZE, 12, 12, levelState.walls) ||
+          collidesWithWalls(x, y + TILE_SIZE, 12, 12, levelState.walls);
+
+        if (hasWallNeighbor || attempts > 30) {
+          const type = Math.random();
+          let decorType;
+          if (type < 0.4) decorType = "barrel";
+          else if (type < 0.7) decorType = "crateClosed";
+          else decorType = "crateOpen";
+
+          levelState.decorations.push({
+            type: decorType,
+            x,
+            y,
+            rotation: 0,
+            animOffset: Math.random() * Math.PI * 2,
+          });
+          break;
+        }
+      }
+      attempts++;
+    }
+  }
+
+  // Small critters (rats, bats, spiders) scattered
+  const critterCount = 4 + Math.floor(Math.random() * 5);
+  const critterTypes = ["rat1", "rat2", "spider", "bat"];
+  for (let i = 0; i < critterCount; i++) {
+    let attempts = 0;
+    while (attempts < 50) {
+      const rx =
+        2 + Math.floor(Math.random() * (levelState.currentMapCols - 4));
+      const ry =
+        2 + Math.floor(Math.random() * (levelState.currentMapRows - 4));
+      const x = rx * TILE_SIZE + Math.random() * 30 - 15;
+      const y = ry * TILE_SIZE + Math.random() * 30 - 15;
+
+      if (!collidesWithWalls(x, y, 12, 12, levelState.walls)) {
+        const distToPlayer = Math.hypot(x - player.x, y - player.y);
+        if (distToPlayer > 80) {
+          levelState.decorations.push({
+            type: critterTypes[Math.floor(Math.random() * critterTypes.length)],
+            x,
+            y,
+            rotation: 0,
+            animOffset: Math.random() * Math.PI * 2,
+            wanderX: x,
+            wanderY: y,
+            wanderTimer: Math.random() * 3,
+            isCritter: true,
+          });
+          break;
+        }
       }
       attempts++;
     }

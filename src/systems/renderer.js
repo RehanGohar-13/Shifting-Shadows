@@ -24,8 +24,8 @@ export function render(ctx, canvas, gameTime) {
   ctx.translate(-camera.x, -camera.y);
 
   drawFloor(ctx);
-  drawBones(ctx); // NEW
-  drawFootprints(ctx); // NEW
+  drawDecorations(ctx, gameTime);
+  drawFootprints(ctx);
   drawWalls(ctx);
   drawSouls(ctx, gameTime);
   drawRockPickups(ctx);
@@ -49,33 +49,59 @@ export function render(ctx, canvas, gameTime) {
     levelState.rockPickups,
   );
 
-  drawHurtFlash(ctx, canvas); // NEW
-  drawBreathingEffect(ctx, canvas, gameTime); // NEW
+  drawHurtFlash(ctx, canvas);
+  drawBreathingEffect(ctx, canvas, gameTime);
   drawSoulFlash(ctx, canvas);
   drawHorrorEffects(ctx, canvas, gameTime);
 }
 
-function drawBones(ctx) {
-  // Draw bones as small skull shapes
-  for (const bone of levelState.bones) {
+function drawDecorations(ctx, gameTime) {
+  for (const decor of levelState.decorations) {
+    const sprite = sprites.sprites[decor.type];
+    if (!sprite) continue;
+
+    let sizeW = 20,
+      sizeH = 20;
+    let alpha = 0.7;
+    let animY = 0;
+    let animX = 0;
+
+    // Different types get different sizes and behaviors
+    if (
+      decor.type === "barrel" ||
+      decor.type === "crateClosed" ||
+      decor.type === "crateOpen"
+    ) {
+      sizeW = 28;
+      sizeH = 28;
+      alpha = 0.85;
+    } else if (decor.type === "rat1" || decor.type === "rat2") {
+      // Rats scurry slightly
+      sizeW = 16;
+      sizeH = 16;
+      alpha = 0.7;
+      animX = Math.sin(gameTime * 4 + decor.animOffset) * 3;
+    } else if (decor.type === "spider") {
+      sizeW = 12;
+      sizeH = 12;
+      alpha = 0.6;
+      animY = Math.sin(gameTime * 3 + decor.animOffset) * 1.5;
+    } else if (decor.type === "bat") {
+      sizeW = 14;
+      sizeH = 14;
+      alpha = 0.5;
+      animY = Math.sin(gameTime * 6 + decor.animOffset) * 3;
+    }
+
     ctx.save();
-    ctx.globalAlpha = 0.35;
-    ctx.translate(bone.x, bone.y);
-    ctx.rotate(bone.rotation);
-
-    // Skull base
-    ctx.fillStyle = "#aaa8a0";
-    ctx.beginPath();
-    ctx.arc(0, 0, 4, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Eye sockets
-    ctx.fillStyle = "#000";
-    ctx.beginPath();
-    ctx.arc(-1.5, -0.5, 0.8, 0, Math.PI * 2);
-    ctx.arc(1.5, -0.5, 0.8, 0, Math.PI * 2);
-    ctx.fill();
-
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(
+      sprite,
+      decor.x - sizeW / 2 + animX,
+      decor.y - sizeH / 2 + animY,
+      sizeW,
+      sizeH,
+    );
     ctx.restore();
   }
 }
@@ -83,21 +109,23 @@ function drawBones(ctx) {
 function drawFootprints(ctx) {
   for (const fp of player.footprints) {
     if (fp.alpha <= 0) continue;
-    ctx.fillStyle = `rgba(120, 0, 0, ${fp.alpha})`;
+    ctx.fillStyle = `rgba(140, 10, 10, ${fp.alpha})`;
 
-    // Two dots that form a footprint shape
+    ctx.save();
+    ctx.translate(fp.x, fp.y);
+    ctx.rotate(fp.angle || 0);
+
+    // Elongated foot shape
     ctx.beginPath();
-    ctx.arc(fp.x - 3, fp.y - 2, 2, 0, Math.PI * 2);
+    ctx.ellipse(0, 0, 2.5, 4, 0, 0, Math.PI * 2);
     ctx.fill();
 
+    // Toe dot at top
     ctx.beginPath();
-    ctx.arc(fp.x + 3, fp.y - 2, 2, 0, Math.PI * 2);
+    ctx.arc(0, -3.5, 1, 0, Math.PI * 2);
     ctx.fill();
 
-    // Heel
-    ctx.beginPath();
-    ctx.ellipse(fp.x, fp.y + 2, 3, 2, 0, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.restore();
   }
 }
 
@@ -138,6 +166,7 @@ function drawFloor(ctx) {
     levelState.currentMapRows * TILE_SIZE,
   );
 }
+
 function drawWalls(ctx) {
   for (const w of levelState.walls) {
     if (sprites.sprites.wall) {
@@ -147,6 +176,7 @@ function drawWalls(ctx) {
     }
   }
 }
+
 function drawSouls(ctx, gt) {
   for (const s of levelState.souls) {
     if (s.collected) continue;
@@ -159,6 +189,7 @@ function drawSouls(ctx, gt) {
     ctx.restore();
   }
 }
+
 function drawRockPickups(ctx) {
   for (const p of levelState.rockPickups) {
     if (p.collected) continue;
@@ -169,6 +200,7 @@ function drawRockPickups(ctx) {
     }
   }
 }
+
 function drawCandlePickups(ctx) {
   for (const p of levelState.candlePickups) {
     if (p.collected) continue;
@@ -181,6 +213,7 @@ function drawCandlePickups(ctx) {
     }
   }
 }
+
 function drawRift(ctx, gt) {
   const r = levelState.exitRift;
   if (!r || !sprites.sprites.rift) return;
@@ -200,12 +233,14 @@ function drawRift(ctx, gt) {
     ctx.restore();
   }
 }
+
 function drawCandles(ctx) {
   for (const c of levelState.candles) {
     if (sprites.sprites.candle)
       ctx.drawImage(sprites.sprites.candle, c.x - 8, c.y - 4, 16, 16);
   }
 }
+
 function drawRocks(ctx) {
   for (const r of levelState.rocks) {
     const a = Math.min(1, r.timer / 1);
@@ -225,11 +260,11 @@ function drawRocks(ctx) {
     }
   }
 }
+
 function drawPlayer(ctx) {
   if (!sprites.sprites.player) return;
   ctx.save();
 
-  // Blink when invulnerable
   if (player.invulnerableTimer > 0 && Math.floor(Date.now() / 100) % 2 === 0) {
     ctx.globalAlpha = 0.3;
   }
@@ -278,6 +313,7 @@ function drawPlayer(ctx) {
     }
   }
 }
+
 function drawPhantom(ctx) {
   const sp = sprites.sprites.phantom;
   const a = 0.7 + Math.sin(phantom.pulseTimer * 2) * 0.2;
@@ -297,6 +333,7 @@ function drawPhantom(ctx) {
     ctx.restore();
   }
 }
+
 function drawSecondPhantom(ctx) {
   const sp = getSecondPhantom();
   if (!sp) return;
@@ -317,6 +354,7 @@ function drawSecondPhantom(ctx) {
     ctx.restore();
   }
 }
+
 function drawSoulFlash(ctx, cv) {
   if (playerEffects.soulFlashTimer <= 0) return;
   playerEffects.soulFlashTimer -= 0.016;

@@ -24,7 +24,14 @@ class SpriteSystem {
         candle: "./assets/sprites/Tiles/tile_0127.png",
         rock: "./assets/sprites/rock.png",
         rift: "./assets/sprites/rift.png",
-        bone: "./assets/sprites/Tiles/tile_0130.png",
+        // Decorations
+        barrel: "./assets/sprites/Tiles/tile_0082.png",
+        spider: "./assets/sprites/Tiles/tile_0122.png",
+        bat: "./assets/sprites/Tiles/tile_0120.png",
+        rat1: "./assets/sprites/Tiles/tile_0123.png",
+        rat2: "./assets/sprites/Tiles/tile_0124.png",
+        crateClosed: "./assets/sprites/Tiles/tile_0063.png",
+        crateOpen: "./assets/sprites/Tiles/tile_0075.png",
       };
 
       this.totalCount = Object.keys(spriteMap).length;
@@ -62,7 +69,7 @@ class SpriteSystem {
     const canvas = document.createElement("canvas");
     canvas.width = img.width;
     canvas.height = img.height;
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
     ctx.drawImage(img, 0, 0);
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
@@ -82,13 +89,10 @@ class SpriteSystem {
     c.height = size;
     const ctx = c.getContext("2d");
     ctx.imageSmoothingEnabled = false;
-
     ctx.fillStyle = "#2a1a3a";
     ctx.fillRect(0, 0, size, size);
-
     const brickH = 4;
     const brickW = 8;
-
     for (let row = 0; row < size / brickH; row++) {
       const offset = row % 2 === 0 ? 0 : brickW / 2;
       for (let col = -1; col < size / brickW + 1; col++) {
@@ -99,7 +103,6 @@ class SpriteSystem {
         ctx.fillRect(x + 1, y, brickW - 1, brickH - 1);
       }
     }
-
     ctx.strokeStyle = "rgba(20, 5, 30, 0.6)";
     ctx.lineWidth = 1;
     for (let row = 0; row <= size / brickH; row++) {
@@ -108,10 +111,8 @@ class SpriteSystem {
       ctx.lineTo(size, row * brickH);
       ctx.stroke();
     }
-
     ctx.fillStyle = "rgba(107, 0, 255, 0.05)";
     ctx.fillRect(0, 0, size, size);
-
     return c;
   }
 

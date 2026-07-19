@@ -90,12 +90,12 @@ export function updatePlayer(dt, callbacks = {}) {
         x: player.x + player.width / 2 + perpX,
         y: player.y + player.height / 2 + perpY,
         alpha: 0.5,
+        angle: Math.atan2(player.direction.y, player.direction.x) + Math.PI / 2,
       });
       if (player.footprints.length > 30) player.footprints.shift();
     }
   }
 
-  // Fade footprints
   for (const fp of player.footprints) fp.alpha -= 0.02 * dt;
 
   // Soul trail
@@ -128,15 +128,7 @@ export function updatePlayer(dt, callbacks = {}) {
     player.corruption += ((150 - distToPhantom) / 150) * 15 * dt;
   else player.corruption = Math.max(0, player.corruption - 2 * dt);
 
-  // Whispers from bones
-  for (const bone of levelState.bones) {
-    if (!bone.whispered && distanceBetween(player, bone) < 40) {
-      bone.whispered = true;
-      if (Math.random() < 0.3) sound.playWhisper();
-    }
-  }
-
-  // Pickups
+  // Pickups (ONLY if not carrying)
   if (!player.carrying) {
     for (const soul of levelState.souls) {
       if (!soul.collected && rectsCollide(player, soul)) {
@@ -235,46 +227,48 @@ export function updatePlayer(dt, callbacks = {}) {
     levelState.exitRift.justBecameReady = false;
   }
 
-  // E - Drop/Place
-  if (keys["e"] && !ePressed) {
+  // E - Drop current item
+  if (keys["e"] && !ePressed && player.carrying) {
     ePressed = true;
+    const cx = player.x + player.width / 2;
+    const cy = player.y + player.height / 2;
+
     if (player.carrying === "candle") {
       sound.playCandlePlace();
       levelState.candles.push({
-        x: player.x + player.width / 2,
-        y: player.y + player.height / 2,
+        x: cx,
+        y: cy,
         radius: 100,
         life: 999999,
         permanent: false,
       });
       levelState.candlePickups.push({
-        x: player.x + player.width / 2,
-        y: player.y + player.height / 2,
+        x: cx,
+        y: cy,
         collected: false,
         wasPlaced: true,
       });
-      player.carrying = null;
     } else if (player.carrying === "rock") {
       levelState.rockPickups.push({
-        x: player.x + player.width / 2,
-        y: player.y + player.height / 2,
+        x: cx,
+        y: cy,
         collected: false,
       });
-      player.carrying = null;
     } else if (player.carrying === "soul") {
       levelState.souls.push({
-        x: player.x + 12,
-        y: player.y + 12,
+        x: cx - 12,
+        y: cy - 12,
         width: 24,
         height: 24,
         collected: false,
       });
-      player.carrying = null;
     }
+
+    player.carrying = null;
   }
   if (!keys["e"]) ePressed = false;
 
-  // F - Throw
+  // F - Throw rock
   if (keys["f"] && !fPressed && player.carrying === "rock") {
     fPressed = true;
     player.carrying = null;

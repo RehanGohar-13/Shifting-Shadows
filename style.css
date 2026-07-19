@@ -1489,3 +1489,134 @@ button:hover {
   transform: translateY(-2px);
   box-shadow: 0 5px 15px rgba(107, 0, 255, 0.3);
 }
+
+/* ── PAUSE MENU (FINAL) ── */
+#pause-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(5, 5, 8, 0.9);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 180;
+  pointer-events: all;
+}
+
+#pause-overlay.hidden {
+  display: none !important;
+}
+
+#pause-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 40px 50px;
+  background: linear-gradient(
+    135deg,
+    rgba(15, 10, 30, 0.98),
+    rgba(30, 5, 40, 0.98)
+  );
+  border: 1px solid rgba(107, 0, 255, 0.5);
+  border-radius: 8px;
+  min-width: 320px;
+  box-shadow: 0 0 40px rgba(107, 0, 255, 0.3);
+}
+
+#pause-title {
+  color: var(--ghost-white);
+  font-size: 32px;
+  letter-spacing: 12px;
+  text-shadow: 0 0 20px rgba(107, 0, 255, 0.8);
+  margin: 0;
+}
+
+#pause-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  align-items: center;
+}
+
+#pause-buttons > button {
+  width: 260px;
+  padding: 14px 24px;
+  font-size: 13px;
+  letter-spacing: 4px;
+  background: rgba(107, 0, 255, 0.1);
+  border: 1px solid rgba(107, 0, 255, 0.4);
+  color: var(--ghost-white);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+}
+
+#pause-buttons > button:hover {
+  background: rgba(107, 0, 255, 0.3);
+  border-color: rgba(107, 0, 255, 0.9);
+  transform: translateY(-2px);
+}
+
+#pause-sound-row {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  padding: 8px 0;
+  order: 2;
+}
+
+#pause-content #resume-button {
+  order: 1;
+}
+#pause-content #pause-sound-row {
+  order: 2;
+}
+#pause-content #pause-menu-button {
+  order: 3;
+}
+
+/* ── STORY TEXT (SMALLER) ── */
+#story-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 30px;
+  max-width: 750px;
+  padding: 40px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+#story-text {
+  color: var(--text-dim);
+  font-size: 14px;
+  letter-spacing: 1px;
+  line-height: 1.8;
+  text-align: center;
+  opacity: 0;
+  animation: storyFadeIn 3s ease forwards;
+}
+
+#story-text .story-highlight {
+  color: var(--ghost-white);
+  text-shadow: 0 0 10px rgba(107, 0, 255, 0.5);
+}
+
+#story-text .story-danger {
+  color: var(--danger-red);
+  text-shadow: 0 0 10px rgba(255, 26, 26, 0.4);
+}
+
+#story-prompt {
+  color: var(--text-dim);
+  font-size: 11px;
+  letter-spacing: 4px;
+  opacity: 0;
+  animation: storyPromptIn 1s ease 3.5s forwards;
+}

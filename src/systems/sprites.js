@@ -12,7 +12,6 @@ class SpriteSystem {
 
   load() {
     return new Promise((resolve) => {
-      // Generate wall tile procedurally
       this.sprites.wall = this.createWallTile();
 
       const spriteMap = {
@@ -65,19 +64,13 @@ class SpriteSystem {
     canvas.height = img.height;
     const ctx = canvas.getContext("2d");
     ctx.drawImage(img, 0, 0);
-
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
-
     for (let i = 0; i < data.length; i += 4) {
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
-      if (r > 240 && g > 240 && b > 240) {
+      if (data[i] > 240 && data[i + 1] > 240 && data[i + 2] > 240) {
         data[i + 3] = 0;
       }
     }
-
     ctx.putImageData(imageData, 0, 0);
     return canvas;
   }
@@ -90,11 +83,9 @@ class SpriteSystem {
     const ctx = c.getContext("2d");
     ctx.imageSmoothingEnabled = false;
 
-    // Base dark stone
     ctx.fillStyle = "#2a1a3a";
     ctx.fillRect(0, 0, size, size);
 
-    // Brick pattern
     const brickH = 4;
     const brickW = 8;
 
@@ -109,7 +100,6 @@ class SpriteSystem {
       }
     }
 
-    // Mortar lines
     ctx.strokeStyle = "rgba(20, 5, 30, 0.6)";
     ctx.lineWidth = 1;
     for (let row = 0; row <= size / brickH; row++) {
@@ -118,18 +108,7 @@ class SpriteSystem {
       ctx.lineTo(size, row * brickH);
       ctx.stroke();
     }
-    for (let row = 0; row < size / brickH; row++) {
-      const offset = row % 2 === 0 ? 0 : brickW / 2;
-      for (let col = 0; col <= size / brickW + 1; col++) {
-        const x = col * brickW + offset;
-        ctx.beginPath();
-        ctx.moveTo(x, row * brickH);
-        ctx.lineTo(x, (row + 1) * brickH);
-        ctx.stroke();
-      }
-    }
 
-    // Purple tint (matches game theme)
     ctx.fillStyle = "rgba(107, 0, 255, 0.05)";
     ctx.fillRect(0, 0, size, size);
 

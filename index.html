@@ -26,17 +26,11 @@
 
       <!-- UI Layer -->
       <div id="ui-layer" class="hidden">
-        <!-- Top UI Bar -->
         <div id="top-ui-bar">
-          <div id="hearts-container">
-            <span class="heart">❤️</span>
-            <span class="heart">❤️</span>
-            <span class="heart">❤️</span>
-          </div>
+          <div id="hearts-container"></div>
           <div id="timer-display">00:00.00</div>
         </div>
 
-        <!-- Nightmare HUD -->
         <div id="nightmare-hud" class="hidden">
           <div id="nightmare-timer">5:00</div>
           <div id="nightmare-morph">MAP MORPHS IN 30s</div>
@@ -71,9 +65,8 @@
           <span id="level-text">LEVEL 1</span>
         </div>
 
-        <!-- Achievement Toast -->
         <div id="achievement-toast" class="hidden">
-          🏆 Achievement Unlocked: <span id="toast-text"></span>
+          🏆 <span id="toast-text"></span>
         </div>
       </div>
 
@@ -100,34 +93,8 @@
 
       <!-- Menu Screen -->
       <div id="menu-overlay" class="hidden">
-        <div id="menu-sound-controls">
-          <button
-            id="menu-music-toggle"
-            class="sound-icon-btn"
-            data-on="true"
-            title="Music"
-          >
-            <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
-              <path
-                d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"
-              />
-            </svg>
-            <div class="mute-line"></div>
-          </button>
-          <button
-            id="menu-sfx-toggle"
-            class="sound-icon-btn"
-            data-on="true"
-            title="Sound"
-          >
-            <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
-              <path
-                d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"
-              />
-            </svg>
-            <div class="mute-line"></div>
-          </button>
-        </div>
+        <!-- Sound buttons drawn by JS -->
+        <div id="menu-sound-controls"></div>
 
         <div id="menu-content">
           <div id="menu-title">
@@ -156,8 +123,13 @@
           </div>
 
           <div id="menu-links">
-            <a href="https://github.com" target="_blank">GITHUB</a> |
-            <a href="https://discord.com" target="_blank">DISCORD</a>
+            <a href="https://github.com/RehanGohar-13" target="_blank"
+              >GITHUB</a
+            >
+            |
+            <a href="https://the-apex-paradox.vercel.app" target="_blank"
+              >MY WORK</a
+            >
           </div>
 
           <div id="menu-tagline">
@@ -166,70 +138,32 @@
         </div>
       </div>
 
-      <!-- Credits Overlay -->
+      <!-- Credits -->
       <div id="credits-overlay" class="hidden">
         <div id="credits-content">
           <h2>CREDITS</h2>
           <div class="m-divider"></div>
-          <p><strong>Game Design & Programming</strong><br />You / Abho</p>
+          <p><strong>Game Design & Programming</strong><br />You</p>
           <p><strong>Art Assets</strong><br />Kenney.nl</p>
-          <p><strong>Audio</strong><br />Generated WebAudio & Pixabay</p>
-          <p><strong>Special Thanks</strong><br />Project Helper AI</p>
+          <p><strong>Audio</strong><br />WebAudio & Pixabay</p>
           <button id="close-credits-button">BACK</button>
         </div>
       </div>
 
-      <!-- Pause Menu -->
+      <!-- Pause -->
       <div id="pause-overlay" class="hidden">
         <div id="pause-content">
           <div id="pause-title">PAUSED</div>
           <div class="m-divider"></div>
           <div id="pause-buttons">
             <button id="resume-button">RESUME</button>
-            <div id="pause-sound-row">
-              <button
-                id="pause-music-toggle"
-                class="sound-icon-btn"
-                data-on="true"
-                title="Music"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  width="20"
-                  height="20"
-                >
-                  <path
-                    d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"
-                  />
-                </svg>
-                <div class="mute-line"></div>
-              </button>
-              <button
-                id="pause-sfx-toggle"
-                class="sound-icon-btn"
-                data-on="true"
-                title="Sound"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  width="20"
-                  height="20"
-                >
-                  <path
-                    d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"
-                  />
-                </svg>
-                <div class="mute-line"></div>
-              </button>
-            </div>
+            <div id="pause-sound-row"></div>
             <button id="pause-menu-button">MAIN MENU</button>
           </div>
         </div>
       </div>
 
-      <!-- Chapter Select Screen -->
+      <!-- Chapter Select -->
       <div id="chapter-overlay" class="hidden">
         <div id="chapter-content">
           <div id="chapter-header">SELECT CHAPTER</div>
@@ -273,7 +207,7 @@
               <div class="chapter-info">
                 <div class="chapter-name">THE NIGHTMARE</div>
                 <div class="chapter-desc">
-                  Everything changes. Nothing lasts. 5 minutes.
+                  Everything changes. Nothing lasts.
                 </div>
                 <div class="chapter-levels">Secret</div>
               </div>
@@ -284,7 +218,7 @@
         </div>
       </div>
 
-      <!-- Game Over Screen -->
+      <!-- Game Over -->
       <div id="gameover-overlay" class="hidden">
         <div id="gameover-content">
           <div id="gameover-title">YOU FADED</div>
@@ -297,7 +231,7 @@
         </div>
       </div>
 
-      <!-- Win Screen -->
+      <!-- Win -->
       <div id="win-overlay" class="hidden">
         <div id="win-content">
           <div id="win-title">YOU ESCAPED</div>
@@ -307,7 +241,7 @@
         </div>
       </div>
 
-      <!-- Endless (Hell) Over Screen -->
+      <!-- Endless Over -->
       <div id="endless-over-overlay" class="hidden">
         <div id="endless-over-content">
           <div id="endless-over-title">SWALLOWED BY HELL</div>
@@ -321,7 +255,7 @@
         </div>
       </div>
 
-      <!-- Mobile Controls -->
+      <!-- Mobile -->
       <div id="mobile-controls" class="hidden">
         <div id="joystick-zone">
           <div id="joystick-base">

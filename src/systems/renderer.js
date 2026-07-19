@@ -71,9 +71,15 @@ function drawFootprints(ctx) {
   for (const fp of player.footprints) {
     if (fp.alpha <= 0) continue;
     ctx.fillStyle = `rgba(120, 0, 0, ${fp.alpha})`;
+
+    // Single small foot-shaped smear
     ctx.beginPath();
-    ctx.arc(fp.x - 4, fp.y, 2, 0, Math.PI * 2);
-    ctx.arc(fp.x + 4, fp.y, 2, 0, Math.PI * 2);
+    ctx.ellipse(fp.x, fp.y, 3, 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Tiny toe dot
+    ctx.beginPath();
+    ctx.arc(fp.x, fp.y - 3, 1, 0, Math.PI * 2);
     ctx.fill();
   }
 }

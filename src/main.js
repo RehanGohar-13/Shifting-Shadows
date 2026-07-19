@@ -80,17 +80,158 @@ setSpaceCallback(() => {
   if (state.current === GameState.TRANSITION) startLevel();
 });
 
-// ── Timer ──
-function updateTimerUI() {
-  const el = document.getElementById("timer-display");
-  if (!el || state.current !== GameState.PLAYING) return;
-  const t = (Date.now() - state.levelStartTime) / 1000;
-  const m = Math.floor(t / 60);
-  const s = (t % 60).toFixed(2);
-  el.textContent = `${m.toString().padStart(2, "0")}:${s.padStart(5, "0")}`;
+// ═══════════════════════════════════════════════════
+// SOUND BUTTONS — CANVAS DRAWN, GUARANTEED TO WORK
+// ═══════════════════════════════════════════════════
+
+function drawMusicIcon(canvasEl) {
+  const ctx = canvasEl.getContext("2d");
+  ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+  ctx.fillStyle = "#c8d8ff";
+  ctx.strokeStyle = "#c8d8ff";
+  ctx.lineWidth = 2;
+
+  // Draw music note
+  // Note head (circle)
+  ctx.beginPath();
+  ctx.arc(9, 20, 3.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Second note head
+  ctx.beginPath();
+  ctx.arc(19, 22, 3.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Vertical stems
+  ctx.beginPath();
+  ctx.moveTo(12.5, 20);
+  ctx.lineTo(12.5, 7);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(22.5, 22);
+  ctx.lineTo(22.5, 9);
+  ctx.stroke();
+
+  // Connecting bar
+  ctx.beginPath();
+  ctx.moveTo(12.5, 7);
+  ctx.lineTo(22.5, 9);
+  ctx.lineTo(22.5, 11);
+  ctx.lineTo(12.5, 9);
+  ctx.closePath();
+  ctx.fill();
 }
 
-// ── Scenes ──
+function drawSpeakerIcon(canvasEl) {
+  const ctx = canvasEl.getContext("2d");
+  ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+  ctx.fillStyle = "#c8d8ff";
+  ctx.strokeStyle = "#c8d8ff";
+  ctx.lineWidth = 2;
+
+  // Speaker body (trapezoid)
+  ctx.beginPath();
+  ctx.moveTo(4, 12);
+  ctx.lineTo(9, 12);
+  ctx.lineTo(15, 6);
+  ctx.lineTo(15, 24);
+  ctx.lineTo(9, 18);
+  ctx.lineTo(4, 18);
+  ctx.closePath();
+  ctx.fill();
+
+  // Sound waves
+  ctx.beginPath();
+  ctx.arc(18, 15, 3, -Math.PI / 3, Math.PI / 3);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(18, 15, 6, -Math.PI / 3, Math.PI / 3);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(18, 15, 9, -Math.PI / 3, Math.PI / 3);
+  ctx.stroke();
+}
+
+function createSoundButton(id, type, container) {
+  const btn = document.createElement("button");
+  btn.id = id;
+  btn.className = "sound-icon-btn";
+  btn.title = type === "music" ? "Music" : "Sound Effects";
+
+  const cv = document.createElement("canvas");
+  cv.width = 30;
+  cv.height = 30;
+  cv.style.width = "30px";
+  cv.style.height = "30px";
+  btn.appendChild(cv);
+
+  const slash = document.createElement("div");
+  slash.className = "mute-slash";
+  btn.appendChild(slash);
+
+  if (type === "music") drawMusicIcon(cv);
+  else drawSpeakerIcon(cv);
+
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (!sound.initialized) sound.init();
+
+    if (type === "music") {
+      const newState = !sound.musicEnabled;
+      sound.setMusicEnabled(newState);
+      updateAllSoundButtons();
+      console.log("Music:", newState ? "ON" : "OFF");
+    } else {
+      const newState = !sound.sfxEnabled;
+      sound.setSfxEnabled(newState);
+      updateAllSoundButtons();
+      console.log("SFX:", newState ? "ON" : "OFF");
+    }
+  });
+
+  container.appendChild(btn);
+  return btn;
+}
+
+function updateAllSoundButtons() {
+  document
+    .querySelectorAll("#menu-music-btn, #pause-music-btn")
+    .forEach((btn) => {
+      if (sound.musicEnabled) btn.classList.remove("muted");
+      else btn.classList.add("muted");
+    });
+  document.querySelectorAll("#menu-sfx-btn, #pause-sfx-btn").forEach((btn) => {
+    if (sound.sfxEnabled) btn.classList.remove("muted");
+    else btn.classList.add("muted");
+  });
+}
+
+function setupSoundButtons() {
+  const menuContainer = document.getElementById("menu-sound-controls");
+  const pauseContainer = document.getElementById("pause-sound-row");
+
+  if (menuContainer) {
+    menuContainer.innerHTML = "";
+    createSoundButton("menu-music-btn", "music", menuContainer);
+    createSoundButton("menu-sfx-btn", "sfx", menuContainer);
+  }
+
+  if (pauseContainer) {
+    pauseContainer.innerHTML = "";
+    createSoundButton("pause-music-btn", "music", pauseContainer);
+    createSoundButton("pause-sfx-btn", "sfx", pauseContainer);
+  }
+
+  updateAllSoundButtons();
+}
+
+// ═══════════════════════════════════════════════════
+// SCENES
+// ═══════════════════════════════════════════════════
+
 function showTransition(levelIdx) {
   sound.playMutationReveal();
   state.current = GameState.TRANSITION;
@@ -137,7 +278,6 @@ function nextLevel() {
   state.current = GameState.TRANSITION;
   sound.playLevelComplete();
 
-  // Save best time
   const time = (Date.now() - state.levelStartTime) / 1000;
   saveBestTime("level_" + state.currentLevel, time);
 
@@ -250,10 +390,11 @@ function startNightmareMode() {
   phantom.reset();
   state.gameTime = 0;
   showStory(
-    `<span class="story-danger">THE NIGHTMARE.</span><br><br>Every 30 seconds, the world changes.<br>Every soul you take makes it stronger.<br><br>You have 5 minutes.`,
+    `<span class="story-danger">THE NIGHTMARE.</span><br><br>Every 30 seconds, the world changes.<br>Every soul makes it stronger.<br><br>You have 5 minutes.`,
     () => startNightmareLevel(),
   );
 }
+
 function startNightmareLevel() {
   document.getElementById("ui-layer").classList.remove("hidden");
   document.getElementById("nightmare-hud").classList.remove("hidden");
@@ -281,6 +422,7 @@ function startNightmareLevel() {
     onWin: winNightmare,
   });
 }
+
 function morphNightmareMap() {
   const flash = document.createElement("div");
   flash.id = "morph-flash";
@@ -312,6 +454,7 @@ function morphNightmareMap() {
   });
   Object.assign(phantom, powers);
 }
+
 function winNightmare() {
   endNightmare();
   completeChapter("nightmare");
@@ -323,10 +466,11 @@ function winNightmare() {
   document.getElementById("win-subtitle").textContent =
     "The nightmare could not hold you.";
 }
+
 function updateNightmareHUD() {
   if (!nightmareState.active) return;
-  const m = Math.floor(nightmareState.timeLeft / 60),
-    s = Math.floor(nightmareState.timeLeft % 60);
+  const m = Math.floor(nightmareState.timeLeft / 60);
+  const s = Math.floor(nightmareState.timeLeft % 60);
   document.getElementById("nightmare-timer").textContent =
     `${m}:${s.toString().padStart(2, "0")}`;
   document.getElementById("nightmare-morph").textContent =
@@ -345,7 +489,6 @@ function refreshChapterCards() {
     const c = parseInt(ca);
     if (c + 1 > p.chaptersUnlocked) {
       card.classList.add("locked");
-      // ??? Name Mystery
       const nameEl = card.querySelector(".chapter-name");
       if (nameEl && !card.dataset.originalName)
         card.dataset.originalName = nameEl.textContent;
@@ -364,6 +507,15 @@ function refreshChapterCards() {
 function updateTotalDeathsUI() {
   const el = document.getElementById("total-deaths-display");
   if (el) el.textContent = `Total Deaths: ${loadProgress().totalDeaths}`;
+}
+
+function updateTimerUI() {
+  const el = document.getElementById("timer-display");
+  if (!el || state.current !== GameState.PLAYING) return;
+  const t = (Date.now() - state.levelStartTime) / 1000;
+  const m = Math.floor(t / 60);
+  const s = (t % 60).toFixed(2);
+  el.textContent = `${m.toString().padStart(2, "0")}:${s.padStart(5, "0")}`;
 }
 
 // Game Loop
@@ -388,12 +540,19 @@ function gameLoop(timestamp) {
   requestAnimationFrame(gameLoop);
 }
 
-// ── UI Bindings ──
+// ═══════════════════════════════════════════════════
+// UI BINDINGS
+// ═══════════════════════════════════════════════════
+
 document
   .getElementById("accept-warning-button")
   .addEventListener("click", () => {
+    // Initialize sound HERE (needs user interaction)
+    sound.init();
+
     document.getElementById("warning-overlay").style.display = "none";
     document.getElementById("menu-overlay").classList.remove("hidden");
+    setupSoundButtons();
     updateTotalDeathsUI();
   });
 
@@ -405,6 +564,7 @@ document.getElementById("story-button").addEventListener("click", () => {
   document.getElementById("chapter-overlay").classList.remove("hidden");
   refreshChapterCards();
 });
+
 document.querySelectorAll(".chapter-card").forEach((card) => {
   card.addEventListener("click", () => {
     const ca = card.getAttribute("data-chapter");
@@ -437,10 +597,12 @@ document.querySelectorAll(".chapter-card").forEach((card) => {
       );
   });
 });
+
 document.getElementById("chapter-back-button").addEventListener("click", () => {
   document.getElementById("chapter-overlay").classList.add("hidden");
   document.getElementById("menu-overlay").classList.remove("hidden");
 });
+
 document.getElementById("endless-button").addEventListener("click", () => {
   sound.init();
   sound.startAmbient();
@@ -455,6 +617,7 @@ document.getElementById("endless-button").addEventListener("click", () => {
     () => startEndlessFloor(),
   );
 });
+
 document.getElementById("retry-button").addEventListener("click", () => {
   document.getElementById("gameover-overlay").classList.add("hidden");
   phantom.reset();
@@ -471,10 +634,12 @@ document.getElementById("retry-button").addEventListener("click", () => {
   document.getElementById("ui-layer").classList.remove("hidden");
   state.current = GameState.PLAYING;
 });
+
 document.getElementById("menu-button").addEventListener("click", returnToMenu);
 document
   .getElementById("play-again-button")
   .addEventListener("click", returnToMenu);
+
 document
   .getElementById("endless-retry-button")
   .addEventListener("click", () => {
@@ -486,6 +651,7 @@ document
     state.gameTime = 0;
     startEndlessFloor();
   });
+
 document
   .getElementById("endless-menu-button")
   .addEventListener("click", returnToMenu);
@@ -517,50 +683,18 @@ document
 window.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && state.current === GameState.PLAYING) togglePause();
 });
+
 function togglePause() {
   isPaused = !isPaused;
-  document
-    .getElementById("pause-overlay")
-    .classList.toggle("hidden", !isPaused);
+  const overlay = document.getElementById("pause-overlay");
+  overlay.classList.toggle("hidden", !isPaused);
+  if (isPaused) setupSoundButtons();
 }
+
 document.getElementById("resume-button").addEventListener("click", togglePause);
 document
   .getElementById("pause-menu-button")
   .addEventListener("click", returnToMenu);
-
-// Sound Toggles
-function setupSoundToggles() {
-  const musicOn = localStorage.getItem("ss_music") !== "false";
-  const sfxOn = localStorage.getItem("ss_sfx") !== "false";
-  sound.musicEnabled = musicOn;
-  sound.sfxEnabled = sfxOn;
-  updateTV("menu-music-toggle", musicOn);
-  updateTV("menu-sfx-toggle", sfxOn);
-  updateTV("pause-music-toggle", musicOn);
-  updateTV("pause-sfx-toggle", sfxOn);
-}
-
-function updateTV(id, on) {
-  const b = document.getElementById(id);
-  if (!b) return;
-  b.setAttribute("data-on", on ? "true" : "false");
-}
-
-function toggleMusic() {
-  if (!sound.initialized) sound.init();
-  const n = !sound.musicEnabled;
-  sound.setMusicEnabled(n);
-  updateTV("menu-music-toggle", n);
-  updateTV("pause-music-toggle", n);
-}
-
-function toggleSfx() {
-  if (!sound.initialized) sound.init();
-  const n = !sound.sfxEnabled;
-  sound.setSfxEnabled(n);
-  updateTV("menu-sfx-toggle", n);
-  updateTV("pause-sfx-toggle", n);
-}
 
 // START
 sprites.load().then(() => {

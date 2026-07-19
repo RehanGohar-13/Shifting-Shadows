@@ -12,9 +12,11 @@ class SoundSystem {
     this.musicElement = null;
     this._levelCompletePlaying = false;
 
-    // Load saved settings
-    this.musicEnabled = localStorage.getItem("ss_music") !== "false";
-    this.sfxEnabled = localStorage.getItem("ss_sfx") !== "false";
+    // Load saved settings — default TRUE if not set
+    const savedMusic = localStorage.getItem("ss_music");
+    const savedSfx = localStorage.getItem("ss_sfx");
+    this.musicEnabled = savedMusic === null ? true : savedMusic === "true";
+    this.sfxEnabled = savedSfx === null ? true : savedSfx === "true";
   }
 
   init() {
@@ -24,7 +26,6 @@ class SoundSystem {
     this.masterVolume.gain.value = this.sfxEnabled ? 0.5 : 0;
     this.masterVolume.connect(this.ctx.destination);
     this.initialized = true;
-
     this.initMusic();
   }
 
@@ -45,7 +46,12 @@ class SoundSystem {
 
   setMusicEnabled(enabled) {
     this.musicEnabled = enabled;
-    localStorage.setItem("ss_music", enabled);
+    localStorage.setItem("ss_music", String(enabled));
+
+    if (!this.musicElement && this.initialized) {
+      this.initMusic();
+    }
+
     if (this.musicElement) {
       if (enabled) {
         this.musicElement.play().catch(() => {});
@@ -57,7 +63,7 @@ class SoundSystem {
 
   setSfxEnabled(enabled) {
     this.sfxEnabled = enabled;
-    localStorage.setItem("ss_sfx", enabled);
+    localStorage.setItem("ss_sfx", String(enabled));
     if (this.masterVolume) {
       this.masterVolume.gain.value = enabled ? 0.5 : 0;
     }

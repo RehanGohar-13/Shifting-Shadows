@@ -72,22 +72,25 @@ export function updatePlayer(dt, callbacks = {}) {
     player.y = newY;
 
   // Footsteps + Bloody Footprints
-  if (player.moving) {
-    player._stepTimer += dt;
-    const stepInterval = player.isRunning ? 0.2 : 0.35;
-    if (player._stepTimer >= stepInterval) {
-      player._stepTimer = 0;
-      if (player.isRunning) sound.playRunStep();
-      else sound.playFootstep();
+  if (player._stepTimer >= stepInterval) {
+    player._stepTimer = 0;
+    if (player.isRunning) sound.playRunStep();
+    else sound.playFootstep();
 
-      // Drop bloody footprint
-      player.footprints.push({
-        x: player.x + player.width / 2,
-        y: player.y + player.height / 2,
-        alpha: 0.6,
-      });
-      if (player.footprints.length > 30) player.footprints.shift();
-    }
+    // Drop bloody footprint (alternate left/right offset)
+    if (!player._footprintSide) player._footprintSide = 0;
+    player._footprintSide = 1 - player._footprintSide;
+
+    const offset = player._footprintSide === 0 ? -6 : 6;
+    const perpX = -player.direction.y * offset;
+    const perpY = player.direction.x * offset;
+
+    player.footprints.push({
+      x: player.x + player.width / 2 + perpX,
+      y: player.y + player.height / 2 + perpY,
+      alpha: 0.5,
+    });
+    if (player.footprints.length > 30) player.footprints.shift();
   }
 
   // Fade footprints

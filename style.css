@@ -1310,77 +1310,90 @@ button:hover {
 }
 
 /* ── SOUND ICON BUTTONS ── */
-.sound-icon-btn {
-  background: rgba(15, 10, 30, 0.85);
-  border: 1px solid rgba(107, 0, 255, 0.4);
-  color: var(--ghost-white);
-  padding: 0;
-  width: 42px;
-  height: 42px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  overflow: hidden;
-}
-
-.sound-icon-btn svg {
-  color: var(--ghost-white);
-  transition: color 0.2s ease;
-}
-
-.sound-icon-btn:hover {
-  background: rgba(107, 0, 255, 0.3);
-  border-color: rgba(107, 0, 255, 0.9);
-  transform: scale(1.08);
-  box-shadow: 0 0 12px rgba(107, 0, 255, 0.5);
-}
-
-.sound-icon-btn .mute-line {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 130%;
-  height: 2px;
-  background: #ff2244;
-  box-shadow: 0 0 4px #ff2244;
-  transform: translate(-50%, -50%) rotate(-45deg);
-  opacity: 0;
-  transition: opacity 0.2s ease;
-  pointer-events: none;
-}
-
-.sound-icon-btn[data-on="false"] {
-  background: rgba(30, 5, 10, 0.85);
-  border-color: rgba(255, 34, 68, 0.4);
-}
-
-.sound-icon-btn[data-on="false"] svg {
-  color: #666;
-  opacity: 0.5;
-}
-
-.sound-icon-btn[data-on="false"] .mute-line {
-  opacity: 1;
-}
-
-/* Menu positioning */
 #menu-sound-controls {
   position: absolute;
   top: 20px;
   right: 20px;
   display: flex;
   gap: 10px;
-  z-index: 250;
+  z-index: 999;
 }
 
-/* Pause menu positioning */
 #pause-sound-row {
   display: flex;
   gap: 12px;
   justify-content: center;
-  margin: 8px 0;
+  margin: 10px 0;
+}
+
+.sound-icon-btn {
+  background: rgba(15, 10, 30, 0.9);
+  border: 1px solid rgba(107, 0, 255, 0.5);
+  width: 44px;
+  height: 44px;
+  cursor: pointer;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.sound-icon-btn:hover {
+  background: rgba(107, 0, 255, 0.3);
+  border-color: rgba(107, 0, 255, 0.9);
+  transform: scale(1.1);
+  box-shadow: 0 0 15px rgba(107, 0, 255, 0.5);
+}
+
+.sound-icon-btn canvas {
+  pointer-events: none;
+}
+
+.sound-icon-btn .mute-slash {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.sound-icon-btn .mute-slash::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: -5%;
+  width: 110%;
+  height: 3px;
+  background: #ff2244;
+  box-shadow:
+    0 0 8px #ff2244,
+    0 0 4px #ff0022;
+  transform: translateY(-50%) rotate(-45deg);
+  transform-origin: center;
+}
+
+.sound-icon-btn.muted {
+  background: rgba(40, 5, 15, 0.9);
+  border-color: rgba(255, 34, 68, 0.5);
+}
+
+.sound-icon-btn.muted:hover {
+  background: rgba(60, 10, 20, 0.9);
+  border-color: rgba(255, 34, 68, 0.9);
+  box-shadow: 0 0 15px rgba(255, 0, 50, 0.4);
+}
+
+.sound-icon-btn.muted canvas {
+  opacity: 0.3;
+}
+
+.sound-icon-btn.muted .mute-slash {
+  opacity: 1;
 }

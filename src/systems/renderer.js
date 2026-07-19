@@ -290,8 +290,8 @@ function drawPlayer(ctx) {
   );
   ctx.restore();
 
+  // Draw held object at its physics position
   if (player.carrying) {
-    const bob = Math.sin(Date.now() / 200) * 3;
     let sp = null,
       glow = "#c8d8ff";
     if (player.carrying === "soul") {
@@ -308,7 +308,13 @@ function drawPlayer(ctx) {
       ctx.save();
       ctx.shadowColor = glow;
       ctx.shadowBlur = 15;
-      ctx.drawImage(sp, player.x + 5, player.y - 20 + bob, 20, 20);
+      ctx.drawImage(
+        sp,
+        player.heldObject.x - 10,
+        player.heldObject.y - 10,
+        20,
+        20,
+      );
       ctx.restore();
     }
   }

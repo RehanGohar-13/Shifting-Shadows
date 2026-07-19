@@ -1571,10 +1571,10 @@ button:hover {
   order: 2;
 }
 
-#pause-content #resume-button {
+#pause-content #pause-sound-row {
   order: 1;
 }
-#pause-content #pause-sound-row {
+#pause-content #resume-button {
   order: 2;
 }
 #pause-content #pause-menu-button {

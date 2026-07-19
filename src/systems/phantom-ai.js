@@ -56,20 +56,20 @@ export function updatePhantom(dt) {
       break;
 
     case "CHASE": {
+      // Granny-style: aggressive chase, but gives up quickly when LOS lost
       const chaseSpeed = Math.min(
-        2.2,
-        1.4 + phantomAI.accelerationTimer * 0.08,
+        2.0,
+        1.3 + phantomAI.accelerationTimer * 0.08,
       );
       moveToward(player, dt, chaseSpeed);
-
       phantomAI.lastKnownPlayer = { x: player.x, y: player.y };
 
-      // Give up chase MUCH faster if line of sight lost
       if (!canDetectPlayer()) {
         phantomAI.giveUpTimer += dt;
-        if (phantomAI.giveUpTimer > 1.2) {
+        // GRANNY-STYLE: forgets fast (1 second no LOS = give up)
+        if (phantomAI.giveUpTimer > 1.0) {
           phantom.state = "LOST";
-          phantomAI.lostTimer = 3;
+          phantomAI.lostTimer = 2.5;
           phantomAI.accelerationTimer = 0;
           phantomAI.giveUpTimer = 0;
         }
@@ -77,26 +77,25 @@ export function updatePhantom(dt) {
         phantomAI.giveUpTimer = 0;
       }
 
-      // Also give up if player is very far away
-      const dist = distanceBetween(phantom, player);
-      if (dist > 450) {
+      // Also give up if very far
+      if (distanceBetween(phantom, player) > 400) {
         phantom.state = "LOST";
-        phantomAI.lostTimer = 3;
+        phantomAI.lostTimer = 2;
         phantomAI.accelerationTimer = 0;
       }
       break;
     }
 
     case "LOST":
-      // Slowly investigates last known position
+      // Granny wanders where she last saw you, then TOTALLY forgets
       if (phantomAI.lastKnownPlayer) {
-        moveToward(phantomAI.lastKnownPlayer, dt, 0.7);
+        moveToward(phantomAI.lastKnownPlayer, dt, 0.6);
       }
       checkPhantomSenses();
 
       phantomAI.lostTimer -= dt;
       if (phantomAI.lostTimer <= 0) {
-        // Fully forget — reset alert
+        // FORGET everything - back to normal wandering
         phantomAI.alertLevel = 0;
         phantomAI.lastKnownPlayer = null;
         phantom.state = "IDLE";

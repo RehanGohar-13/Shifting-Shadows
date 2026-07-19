@@ -25,7 +25,6 @@ let fPressed = false;
 export function updatePlayer(dt, callbacks = {}) {
   const { nextLevel, gameOver } = callbacks;
 
-  // Invulnerability countdown
   if (player.invulnerableTimer > 0) {
     player.invulnerableTimer -= dt;
   }
@@ -72,25 +71,28 @@ export function updatePlayer(dt, callbacks = {}) {
     player.y = newY;
 
   // Footsteps + Bloody Footprints
-  if (player._stepTimer >= stepInterval) {
-    player._stepTimer = 0;
-    if (player.isRunning) sound.playRunStep();
-    else sound.playFootstep();
+  if (player.moving) {
+    player._stepTimer += dt;
+    const stepInterval = player.isRunning ? 0.2 : 0.35;
+    if (player._stepTimer >= stepInterval) {
+      player._stepTimer = 0;
+      if (player.isRunning) sound.playRunStep();
+      else sound.playFootstep();
 
-    // Drop bloody footprint (alternate left/right offset)
-    if (!player._footprintSide) player._footprintSide = 0;
-    player._footprintSide = 1 - player._footprintSide;
+      if (!player._footprintSide) player._footprintSide = 0;
+      player._footprintSide = 1 - player._footprintSide;
 
-    const offset = player._footprintSide === 0 ? -6 : 6;
-    const perpX = -player.direction.y * offset;
-    const perpY = player.direction.x * offset;
+      const offset = player._footprintSide === 0 ? -6 : 6;
+      const perpX = -player.direction.y * offset;
+      const perpY = player.direction.x * offset;
 
-    player.footprints.push({
-      x: player.x + player.width / 2 + perpX,
-      y: player.y + player.height / 2 + perpY,
-      alpha: 0.5,
-    });
-    if (player.footprints.length > 30) player.footprints.shift();
+      player.footprints.push({
+        x: player.x + player.width / 2 + perpX,
+        y: player.y + player.height / 2 + perpY,
+        alpha: 0.5,
+      });
+      if (player.footprints.length > 30) player.footprints.shift();
+    }
   }
 
   // Fade footprints
@@ -120,12 +122,13 @@ export function updatePlayer(dt, callbacks = {}) {
   else if (!player.inLight) player.sanity -= 1.8 * dt;
   else player.sanity = Math.min(100, player.sanity + 5 * dt);
 
+  // Corruption
   const distToPhantom = distanceBetween(player, phantom);
   if (distToPhantom < 150)
     player.corruption += ((150 - distToPhantom) / 150) * 15 * dt;
   else player.corruption = Math.max(0, player.corruption - 2 * dt);
 
-  // Whispers from bones (random events)
+  // Whispers from bones
   for (const bone of levelState.bones) {
     if (!bone.whispered && distanceBetween(player, bone) < 40) {
       bone.whispered = true;
@@ -286,20 +289,18 @@ export function updatePlayer(dt, callbacks = {}) {
   }
   if (!keys["f"]) fPressed = false;
 
-  // ── DAMAGE SYSTEM ──
+  // Damage system
   function takeDamage(reason) {
     if (player.invulnerableTimer > 0) return;
     player.lives--;
-    player.invulnerableTimer = 2.0; // 2s of I-frames
+    player.invulnerableTimer = 2.0;
     playerEffects.hurtFlashTimer = 0.5;
     sound.playJumpscare();
 
     if (player.lives <= 0) {
       if (gameOver) gameOver(reason);
     } else {
-      // Update hearts UI
       updateHeartsUI();
-      // Push phantom away
       const dx = phantom.x - player.x;
       const dy = phantom.y - player.y;
       const dist = Math.hypot(dx, dy) || 1;

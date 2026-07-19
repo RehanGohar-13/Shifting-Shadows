@@ -41,7 +41,7 @@ import {
 } from "./systems/nightmare-mode.js";
 
 const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
+const ctx = canvas.getContext("2d", { willReadFrequently: true });
 canvas.width = 1200;
 canvas.height = 800;
 ctx.imageSmoothingEnabled = false;
@@ -687,8 +687,19 @@ window.addEventListener("keydown", (e) => {
 function togglePause() {
   isPaused = !isPaused;
   const overlay = document.getElementById("pause-overlay");
-  overlay.classList.toggle("hidden", !isPaused);
-  if (isPaused) setupSoundButtons();
+
+  if (isPaused) {
+    overlay.classList.remove("hidden");
+    // Only setup pause buttons (not menu ones)
+    const pauseContainer = document.getElementById("pause-sound-row");
+    if (pauseContainer && pauseContainer.children.length === 0) {
+      createSoundButton("pause-music-btn", "music", pauseContainer);
+      createSoundButton("pause-sfx-btn", "sfx", pauseContainer);
+      updateAllSoundButtons();
+    }
+  } else {
+    overlay.classList.add("hidden");
+  }
 }
 
 document.getElementById("resume-button").addEventListener("click", togglePause);

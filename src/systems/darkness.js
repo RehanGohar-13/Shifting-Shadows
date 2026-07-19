@@ -17,7 +17,7 @@ export function drawDarkness(
   const darkCanvas = document.createElement("canvas");
   darkCanvas.width = canvas.width;
   darkCanvas.height = canvas.height;
-  const dCtx = darkCanvas.getContext("2d");
+  const dCtx = darkCanvas.getContext("2d", { willReadFrequently: true });
 
   dCtx.fillStyle = "rgba(0, 0, 0, 0.94)";
   dCtx.fillRect(0, 0, darkCanvas.width, darkCanvas.height);

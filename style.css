@@ -1397,3 +1397,52 @@ button:hover {
 .sound-icon-btn.muted .mute-slash {
   opacity: 1;
 }
+
+#pause-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(5, 5, 8, 0.9);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 180;
+  pointer-events: all;
+}
+
+#pause-overlay.hidden {
+  display: none !important;
+}
+
+#pause-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  padding: 40px;
+  background: rgba(15, 10, 30, 0.95);
+  border: 1px solid rgba(107, 0, 255, 0.4);
+  border-radius: 4px;
+  min-width: 300px;
+}
+
+#pause-title {
+  color: var(--ghost-white);
+  font-size: 32px;
+  letter-spacing: 12px;
+  text-shadow: 0 0 20px rgba(107, 0, 255, 0.6);
+}
+
+#pause-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  align-items: center;
+}
+
+#pause-buttons button {
+  width: 100%;
+}

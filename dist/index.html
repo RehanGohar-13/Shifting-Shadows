@@ -4,16 +4,34 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Shifting Shadows</title>
-    <script type="module" crossorigin src="./built-assets/main-CbYTwfvB.js"></script>
-    <link rel="stylesheet" crossorigin href="./built-assets/main-BSKCYBpF.css">
+    <script type="module" crossorigin src="./built-assets/main-40imQc1i.js"></script>
+    <link rel="stylesheet" crossorigin href="./built-assets/main-Bhf4ERvr.css">
   </head>
   <body>
+    <!-- Photosensitivity Warning -->
+    <div id="warning-overlay">
+      <div id="warning-content">
+        <h2>⚠️ PHOTOSENSITIVITY WARNING ⚠️</h2>
+        <p>
+          This game contains flashing lights, screen glitching effects, and
+          sudden visual changes that may not be suitable for photosensitive
+          epilepsy.
+        </p>
+        <p>Viewer discretion is advised.</p>
+        <button id="accept-warning-button">I UNDERSTAND</button>
+      </div>
+    </div>
+
     <div id="game-wrapper">
       <canvas id="gameCanvas" width="1200" height="800"></canvas>
 
       <!-- UI Layer -->
-      <div id="ui-layer">
-        <!-- Nightmare HUD -->
+      <div id="ui-layer" class="hidden">
+        <div id="top-ui-bar">
+          <div id="hearts-container"></div>
+          <div id="timer-display">00:00.00</div>
+        </div>
+
         <div id="nightmare-hud" class="hidden">
           <div id="nightmare-timer">5:00</div>
           <div id="nightmare-morph">MAP MORPHS IN 30s</div>
@@ -26,6 +44,7 @@
               <div id="sanity-bar" class="meter-fill sanity"></div>
             </div>
           </div>
+
           <div class="meter-container">
             <span class="meter-label">CORRUPTION</span>
             <div class="meter-bar">
@@ -39,27 +58,17 @@
           <span id="souls-text">0 / 0</span>
         </div>
 
-        <div id="candles-counter">
-          <span>🕯️</span>
-          <span id="candles-text">3</span>
+        <div id="carry-indicator">
+          <span>🎒</span>
+          <span id="carry-text">empty</span>
         </div>
 
         <div id="level-info">
           <span id="level-text">LEVEL 1</span>
         </div>
 
-        <div id="ability-hints">
-          <span>[E] Place Candle</span>
-          <span>[SHIFT] Run</span>
-          <span>[F] Throw Rock</span>
-        </div>
-      </div>
-
-      <!-- Story Screen -->
-      <div id="story-overlay" class="hidden">
-        <div id="story-content">
-          <div id="story-text"></div>
-          <div id="story-prompt">[ PRESS SPACE ]</div>
+        <div id="achievement-toast" class="hidden">
+          🏆 <span id="toast-text"></span>
         </div>
       </div>
 
@@ -76,8 +85,19 @@
         </div>
       </div>
 
+      <!-- Story Screen -->
+      <div id="story-overlay" class="hidden">
+        <div id="story-content">
+          <div id="story-text"></div>
+          <div id="story-prompt">[ PRESS SPACE ]</div>
+        </div>
+      </div>
+
       <!-- Menu Screen -->
-      <div id="menu-overlay">
+      <div id="menu-overlay" class="hidden">
+        <!-- Sound buttons drawn by JS -->
+        <div id="menu-sound-controls"></div>
+
         <div id="menu-content">
           <div id="menu-title">
             <span class="title-top">SHIFTING</span>
@@ -87,32 +107,31 @@
             </span>
           </div>
 
+          <div id="total-deaths-display">Total Deaths: 0</div>
+
           <div class="m-divider"></div>
 
-          <div id="menu-controls">
-            <div class="control-row">
-              <span class="key">WASD</span>
-              <span class="control-desc">Move</span>
-            </div>
-            <div class="control-row">
-              <span class="key">SHIFT</span>
-              <span class="control-desc">Run (makes noise)</span>
-            </div>
-            <div class="control-row">
-              <span class="key">E</span>
-              <span class="control-desc">Place Candle</span>
-            </div>
-            <div class="control-row">
-              <span class="key">F</span>
-              <span class="control-desc">Throw Rock</span>
-            </div>
+          <div id="difficulty-selector">
+            <span>DIFFICULTY:</span>
+            <button id="diff-easy" class="diff-btn">EASY</button>
+            <button id="diff-normal" class="diff-btn active">NORMAL</button>
+            <button id="diff-hell" class="diff-btn">HELL</button>
           </div>
-
-          <div class="m-divider"></div>
 
           <div id="menu-buttons">
             <button id="story-button">STORY MODE</button>
-            <button id="endless-button">ENDLESS MODE</button>
+            <button id="endless-button">DESCEND (ENDLESS)</button>
+            <button id="credits-button">CREDITS</button>
+          </div>
+
+          <div id="menu-links">
+            <a href="https://github.com/RehanGohar-13" target="_blank"
+              >GITHUB</a
+            >
+            |
+            <a href="https://the-apex-paradox.vercel.app" target="_blank"
+              >MY WORK</a
+            >
           </div>
 
           <div id="menu-tagline">
@@ -121,12 +140,37 @@
         </div>
       </div>
 
-      <!-- Chapter Select Screen -->
+      <!-- Credits -->
+      <div id="credits-overlay" class="hidden">
+        <div id="credits-content">
+          <h2>CREDITS</h2>
+          <div class="m-divider"></div>
+          <p><strong>Game Design & Programming</strong><br />Rehan Gohar</p>
+          <p><strong>Art Assets</strong><br />Kenney.nl (Tiny Dungeon Pack)</p>
+          <p><strong>Audio</strong><br />Generated WebAudio + Pixabay Music</p>
+          <p><strong>Made For</strong><br />Mini Jam 215: Phantoms</p>
+          <button id="close-credits-button">BACK</button>
+        </div>
+      </div>
+
+      <!-- Pause -->
+      <div id="pause-overlay" class="hidden">
+        <div id="pause-content">
+          <div id="pause-title">PAUSED</div>
+          <div class="m-divider"></div>
+          <div id="pause-buttons">
+            <button id="resume-button">RESUME</button>
+            <div id="pause-sound-row"></div>
+            <button id="pause-menu-button">MAIN MENU</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chapter Select -->
       <div id="chapter-overlay" class="hidden">
         <div id="chapter-content">
           <div id="chapter-header">SELECT CHAPTER</div>
           <div class="m-divider"></div>
-
           <div id="chapter-list">
             <div class="chapter-card" data-chapter="0">
               <div class="chapter-number">I</div>
@@ -138,7 +182,6 @@
                 <div class="chapter-levels">Levels 1 — 2</div>
               </div>
             </div>
-
             <div class="chapter-card" data-chapter="1">
               <div class="chapter-number">II</div>
               <div class="chapter-info">
@@ -149,7 +192,6 @@
                 <div class="chapter-levels">Levels 3 — 4</div>
               </div>
             </div>
-
             <div class="chapter-card" data-chapter="2">
               <div class="chapter-number">III</div>
               <div class="chapter-info">
@@ -160,7 +202,6 @@
                 <div class="chapter-levels">Levels 5 — 6</div>
               </div>
             </div>
-
             <div
               class="chapter-card chapter-nightmare"
               data-chapter="nightmare"
@@ -169,19 +210,18 @@
               <div class="chapter-info">
                 <div class="chapter-name">THE NIGHTMARE</div>
                 <div class="chapter-desc">
-                  Everything changes. Nothing lasts. 5 minutes.
+                  Everything changes. Nothing lasts.
                 </div>
                 <div class="chapter-levels">Secret</div>
               </div>
             </div>
           </div>
-
           <div class="m-divider"></div>
           <button id="chapter-back-button">BACK</button>
         </div>
       </div>
 
-      <!-- Game Over Screen -->
+      <!-- Game Over -->
       <div id="gameover-overlay" class="hidden">
         <div id="gameover-content">
           <div id="gameover-title">YOU FADED</div>
@@ -194,7 +234,7 @@
         </div>
       </div>
 
-      <!-- Win Screen -->
+      <!-- Win -->
       <div id="win-overlay" class="hidden">
         <div id="win-content">
           <div id="win-title">YOU ESCAPED</div>
@@ -204,20 +244,21 @@
         </div>
       </div>
 
-      <!-- Endless Score Screen -->
+      <!-- Endless Over -->
       <div id="endless-over-overlay" class="hidden">
         <div id="endless-over-content">
-          <div id="endless-over-title">CONSUMED</div>
+          <div id="endless-over-title">SWALLOWED BY HELL</div>
           <div id="endless-floor"></div>
           <div id="endless-score"></div>
+          <div id="endless-phase-name"></div>
           <div id="endless-over-buttons">
-            <button id="endless-retry-button">TRY AGAIN</button>
+            <button id="endless-retry-button">DESCEND AGAIN</button>
             <button id="endless-menu-button">MAIN MENU</button>
           </div>
         </div>
       </div>
 
-      <!-- Mobile Controls -->
+      <!-- Mobile -->
       <div id="mobile-controls" class="hidden">
         <div id="joystick-zone">
           <div id="joystick-base">

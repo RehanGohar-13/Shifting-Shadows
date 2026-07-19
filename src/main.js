@@ -80,8 +80,99 @@ setSpaceCallback(() => {
   if (state.current === GameState.TRANSITION) startLevel();
 });
 
+// ── Tutorial Hints ──
+const tutorialHints = {
+  shown: {
+    movement: false,
+    run: false,
+    candle: false,
+    rock: false,
+    soulPickup: false,
+    delivery: false,
+  },
+};
+
+function showHint(text, duration = 3) {
+  const existing = document.querySelectorAll(".tutorial-hint");
+  existing.forEach((el) => el.remove());
+
+  const hint = document.createElement("div");
+  hint.className = "tutorial-hint";
+  hint.style.animation = `hintFade ${duration}s forwards`;
+  hint.innerHTML = text;
+  document.getElementById("game-wrapper").appendChild(hint);
+  setTimeout(() => hint.remove(), duration * 1000);
+}
+
+function resetTutorial() {
+  tutorialHints.shown.movement = false;
+  tutorialHints.shown.run = false;
+  tutorialHints.shown.candle = false;
+  tutorialHints.shown.rock = false;
+  tutorialHints.shown.soulPickup = false;
+  tutorialHints.shown.delivery = false;
+}
+
+function updateTutorial() {
+  if (state.currentMode !== "story") return;
+
+  if (state.currentLevel === 0) {
+    if (!tutorialHints.shown.movement && state.gameTime > 1) {
+      tutorialHints.shown.movement = true;
+      showHint(
+        'WASD to move<br><span style="color:#aaccff;font-size:11px">SHIFT to run (louder)</span>',
+        4,
+      );
+    }
+
+    if (
+      !tutorialHints.shown.soulPickup &&
+      !player.carrying &&
+      state.gameTime > 6
+    ) {
+      tutorialHints.shown.soulPickup = true;
+      showHint(
+        'Walk near items<br><span style="color:#aaccff;font-size:11px">Press E to pick up</span>',
+        4,
+      );
+    }
+
+    if (!tutorialHints.shown.delivery && player.carrying === "soul") {
+      tutorialHints.shown.delivery = true;
+      showHint(
+        'Carry the soul to the RIFT<br><span style="color:#00ffaa;font-size:11px">The dim portal</span>',
+        4,
+      );
+    }
+  }
+
+  if (
+    state.currentLevel === 1 &&
+    !tutorialHints.shown.candle &&
+    state.gameTime > 2
+  ) {
+    tutorialHints.shown.candle = true;
+    showHint(
+      'Torches restore sanity<br><span style="color:#ff8800;font-size:11px">Carry one to stay safe</span>',
+      4,
+    );
+  }
+
+  if (
+    state.currentLevel === 2 &&
+    !tutorialHints.shown.rock &&
+    state.gameTime > 2
+  ) {
+    tutorialHints.shown.rock = true;
+    showHint(
+      'Rocks distract the phantom<br><span style="color:#ffaa00;font-size:11px">F to throw</span>',
+      4,
+    );
+  }
+}
+
 // ═══════════════════════════════════════════════════
-// SOUND BUTTONS — CANVAS DRAWN, GUARANTEED TO WORK
+// SOUND BUTTONS — CANVAS DRAWN
 // ═══════════════════════════════════════════════════
 
 function drawMusicIcon(canvasEl) {
@@ -361,6 +452,7 @@ function returnToMenu() {
   phantom.reset();
   resetStory();
   endNightmare();
+  resetTutorial();
   player.reset();
   isPaused = false;
 
@@ -525,11 +617,11 @@ function gameLoop(timestamp) {
   state.lastTime = timestamp;
 
   if (state.current === GameState.PLAYING && !isPaused) {
-    // FORCE UI VISIBLE
     document.getElementById("ui-layer").classList.remove("hidden");
     document.getElementById("ui-layer").style.display = "block";
 
     state.gameTime += dt;
+    updateTutorial();
     if (Math.random() < 0.003) sound.playAmbientScare?.();
     updatePlayer(dt, { nextLevel, gameOver });
     updatePhantom(dt);

@@ -26,76 +26,23 @@ export function initInput() {
 }
 
 export function initMobileControls(canvas) {
-  const isMobile =
-    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
-    window.innerWidth < 768;
+  // Mobile support is disabled for jam submission
+  // TODO: Re-enable once mobile UI is fixed
+
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
   if (isMobile) {
-    document.getElementById("mobile-controls").classList.remove("hidden");
-    const scale = Math.min(
-      window.innerWidth / canvas.width,
-      window.innerHeight / canvas.height,
-    );
-    document.getElementById("game-wrapper").style.transform = `scale(${scale})`;
-    document.getElementById("game-wrapper").style.transformOrigin = "top left";
+    // Show a "desktop only" message
+    document.getElementById("warning-content").innerHTML = `
+      <h2>💻 DESKTOP ONLY</h2>
+      <p>Shifting Shadows is designed for desktop with keyboard controls.</p>
+      <p>Mobile support is coming in a future update.</p>
+      <p>Please play on a computer with a keyboard.</p>
+    `;
+    // Hide the accept button since they can't play anyway
+    document.getElementById("accept-warning-button").style.display = "none";
+    return;
   }
 
-  const joystickThumb = document.getElementById("joystick-thumb");
-  const joystickBase = document.getElementById("joystick-base");
-  let joystickActive = false;
-  let joystickOrigin = { x: 0, y: 0 };
-
-  joystickBase.addEventListener("touchstart", (e) => {
-    joystickActive = true;
-    joystickOrigin = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-  });
-
-  joystickBase.addEventListener(
-    "touchmove",
-    (e) => {
-      if (!joystickActive) return;
-      e.preventDefault();
-      const touch = e.touches[0];
-      const dx = touch.clientX - joystickOrigin.x;
-      const dy = touch.clientY - joystickOrigin.y;
-      const dist = Math.min(40, Math.sqrt(dx * dx + dy * dy));
-      const angle = Math.atan2(dy, dx);
-      joystickThumb.style.transform = `translate(${Math.cos(angle) * dist}px, ${Math.sin(angle) * dist}px)`;
-      keys["w"] = dy < -10;
-      keys["s"] = dy > 10;
-      keys["a"] = dx < -10;
-      keys["d"] = dx > 10;
-    },
-    { passive: false },
-  );
-
-  joystickBase.addEventListener("touchend", () => {
-    joystickActive = false;
-    joystickThumb.style.transform = "translate(0px, 0px)";
-    keys["w"] = false;
-    keys["s"] = false;
-    keys["a"] = false;
-    keys["d"] = false;
-  });
-
-  document.getElementById("mobile-run").addEventListener("touchstart", () => {
-    keys["shift"] = true;
-  });
-  document.getElementById("mobile-run").addEventListener("touchend", () => {
-    keys["shift"] = false;
-  });
-  document
-    .getElementById("mobile-candle")
-    .addEventListener("touchstart", () => {
-      keys["e"] = true;
-    });
-  document.getElementById("mobile-candle").addEventListener("touchend", () => {
-    keys["e"] = false;
-  });
-  document.getElementById("mobile-rock").addEventListener("touchstart", () => {
-    keys["f"] = true;
-  });
-  document.getElementById("mobile-rock").addEventListener("touchend", () => {
-    keys["f"] = false;
-  });
+  // Desktop — no mobile controls needed
 }

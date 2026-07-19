@@ -57,36 +57,48 @@ export function updatePhantom(dt) {
 
     case "CHASE": {
       const chaseSpeed = Math.min(
-        2.4,
-        1.6 + phantomAI.accelerationTimer * 0.12,
+        2.2,
+        1.4 + phantomAI.accelerationTimer * 0.08,
       );
-      const predictedTarget = predictPlayerPosition(0.6);
-      moveToward(predictedTarget, dt, chaseSpeed);
+      moveToward(player, dt, chaseSpeed);
 
       phantomAI.lastKnownPlayer = { x: player.x, y: player.y };
-      phantomAI.giveUpTimer = 0;
 
+      // Give up chase MUCH faster if line of sight lost
       if (!canDetectPlayer()) {
         phantomAI.giveUpTimer += dt;
-        if (phantomAI.giveUpTimer > 2.5) {
+        if (phantomAI.giveUpTimer > 1.2) {
           phantom.state = "LOST";
-          phantomAI.lostTimer = 5;
+          phantomAI.lostTimer = 3;
           phantomAI.accelerationTimer = 0;
           phantomAI.giveUpTimer = 0;
         }
+      } else {
+        phantomAI.giveUpTimer = 0;
+      }
+
+      // Also give up if player is very far away
+      const dist = distanceBetween(phantom, player);
+      if (dist > 450) {
+        phantom.state = "LOST";
+        phantomAI.lostTimer = 3;
+        phantomAI.accelerationTimer = 0;
       }
       break;
     }
 
     case "LOST":
+      // Slowly investigates last known position
       if (phantomAI.lastKnownPlayer) {
-        moveToward(phantomAI.lastKnownPlayer, dt, 1.0);
+        moveToward(phantomAI.lastKnownPlayer, dt, 0.7);
       }
       checkPhantomSenses();
 
       phantomAI.lostTimer -= dt;
       if (phantomAI.lostTimer <= 0) {
-        phantomAI.alertLevel = 40;
+        // Fully forget — reset alert
+        phantomAI.alertLevel = 0;
+        phantomAI.lastKnownPlayer = null;
         phantom.state = "IDLE";
       }
       break;

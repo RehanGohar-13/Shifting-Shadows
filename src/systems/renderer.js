@@ -56,13 +56,26 @@ export function render(ctx, canvas, gameTime) {
 }
 
 function drawBones(ctx) {
-  if (!sprites.sprites.bone) return;
+  // Draw bones as small skull shapes
   for (const bone of levelState.bones) {
     ctx.save();
-    ctx.globalAlpha = 0.6;
+    ctx.globalAlpha = 0.35;
     ctx.translate(bone.x, bone.y);
     ctx.rotate(bone.rotation);
-    ctx.drawImage(sprites.sprites.bone, -12, -12, 24, 24);
+
+    // Skull base
+    ctx.fillStyle = "#aaa8a0";
+    ctx.beginPath();
+    ctx.arc(0, 0, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Eye sockets
+    ctx.fillStyle = "#000";
+    ctx.beginPath();
+    ctx.arc(-1.5, -0.5, 0.8, 0, Math.PI * 2);
+    ctx.arc(1.5, -0.5, 0.8, 0, Math.PI * 2);
+    ctx.fill();
+
     ctx.restore();
   }
 }
@@ -72,14 +85,18 @@ function drawFootprints(ctx) {
     if (fp.alpha <= 0) continue;
     ctx.fillStyle = `rgba(120, 0, 0, ${fp.alpha})`;
 
-    // Single small foot-shaped smear
+    // Two dots that form a footprint shape
     ctx.beginPath();
-    ctx.ellipse(fp.x, fp.y, 3, 2, 0, 0, Math.PI * 2);
+    ctx.arc(fp.x - 3, fp.y - 2, 2, 0, Math.PI * 2);
     ctx.fill();
 
-    // Tiny toe dot
     ctx.beginPath();
-    ctx.arc(fp.x, fp.y - 3, 1, 0, Math.PI * 2);
+    ctx.arc(fp.x + 3, fp.y - 2, 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Heel
+    ctx.beginPath();
+    ctx.ellipse(fp.x, fp.y + 2, 3, 2, 0, 0, Math.PI * 2);
     ctx.fill();
   }
 }

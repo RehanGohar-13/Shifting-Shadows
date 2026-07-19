@@ -122,8 +122,8 @@ export function loadLevel(level) {
 }
 
 function spawnBones() {
-  // Scatter bones on floor for atmosphere
-  const boneCount = 5 + Math.floor(Math.random() * 8);
+  // Scatter skulls on floor for atmosphere
+  const boneCount = 3 + Math.floor(Math.random() * 4);
   for (let i = 0; i < boneCount; i++) {
     let attempts = 0;
     while (attempts < 50) {

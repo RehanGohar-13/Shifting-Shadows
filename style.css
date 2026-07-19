@@ -1416,33 +1416,76 @@ button:hover {
   display: none !important;
 }
 
+/* ── PAUSE MENU POLISH ── */
 #pause-content {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 24px;
-  padding: 40px;
-  background: rgba(15, 10, 30, 0.95);
-  border: 1px solid rgba(107, 0, 255, 0.4);
-  border-radius: 4px;
-  min-width: 300px;
+  gap: 20px;
+  padding: 50px 60px;
+  background: linear-gradient(
+    135deg,
+    rgba(15, 10, 30, 0.98),
+    rgba(30, 5, 40, 0.98)
+  );
+  border: 1px solid rgba(107, 0, 255, 0.5);
+  border-radius: 8px;
+  min-width: 340px;
+  box-shadow:
+    0 0 40px rgba(107, 0, 255, 0.2),
+    inset 0 0 30px rgba(0, 0, 0, 0.5);
 }
 
 #pause-title {
   color: var(--ghost-white);
-  font-size: 32px;
-  letter-spacing: 12px;
-  text-shadow: 0 0 20px rgba(107, 0, 255, 0.6);
+  font-size: 36px;
+  letter-spacing: 14px;
+  text-shadow:
+    0 0 20px rgba(107, 0, 255, 0.8),
+    0 0 40px rgba(107, 0, 255, 0.4);
+  margin-bottom: 10px;
+  animation: pausePulse 2s ease-in-out infinite;
+}
+
+@keyframes pausePulse {
+  0%,
+  100% {
+    text-shadow:
+      0 0 20px rgba(107, 0, 255, 0.8),
+      0 0 40px rgba(107, 0, 255, 0.4);
+  }
+  50% {
+    text-shadow:
+      0 0 30px rgba(107, 0, 255, 1),
+      0 0 60px rgba(107, 0, 255, 0.6);
+  }
 }
 
 #pause-buttons {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
   width: 100%;
   align-items: center;
 }
 
-#pause-buttons button {
+#pause-buttons button:not(.sound-icon-btn) {
   width: 100%;
+  padding: 14px 32px;
+  font-size: 14px;
+  letter-spacing: 4px;
+  background: rgba(107, 0, 255, 0.1);
+  border: 1px solid rgba(107, 0, 255, 0.4);
+  color: var(--ghost-white);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+}
+
+#pause-buttons button:not(.sound-icon-btn):hover {
+  background: rgba(107, 0, 255, 0.3);
+  border-color: rgba(107, 0, 255, 0.9);
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(107, 0, 255, 0.3);
 }

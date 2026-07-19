@@ -523,7 +523,12 @@ function gameLoop(timestamp) {
   if (state.lastTime === 0) state.lastTime = timestamp;
   const dt = Math.min((timestamp - state.lastTime) / 1000, 0.05);
   state.lastTime = timestamp;
+
   if (state.current === GameState.PLAYING && !isPaused) {
+    // FORCE UI VISIBLE
+    document.getElementById("ui-layer").classList.remove("hidden");
+    document.getElementById("ui-layer").style.display = "block";
+
     state.gameTime += dt;
     if (Math.random() < 0.003) sound.playAmbientScare?.();
     updatePlayer(dt, { nextLevel, gameOver });
